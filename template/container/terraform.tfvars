@@ -1,7 +1,7 @@
 hostname    = "example-lxc"
 public_key  = [
   "ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAFENRdM4NwJfgRO/MqntSOLZxSy0fTLkj0etUL/CnakA7gNI9YuZUYQxtGVa80Oc+6bZjT38Nd6Eico5RoRVAdlzwEEfQq+iy3v/W8c0ElybiSQmPIw7Mc7KaEyUhMb1LgmVleZYsEizJV/89/lNGvPVjUXkcEZsliIMROuFepQASUiuQ== iwakiaoiyou@AobaMacBookAir.local",
-  "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBG9f4vgU9IDOuFabTWfywOFLLWD0q/SQY8SN2bR5ra6iyUxz72AZhVmKlXstZdUiR3A6xu8Yyf3Qa00bMqQcvOk= root@ansible"
+  "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNfEYHed8cVN4EOpdCpGevrhP/R5nywiOr98fy/8HSRxEOUEy8U10sQJCOMYS3DFr3qf+h35QxrZwltaDsMHN+w= root@ansible"
   ]
 cores       = 1
 memory      = 1024
