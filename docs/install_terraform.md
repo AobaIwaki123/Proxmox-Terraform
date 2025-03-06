@@ -1,6 +1,5 @@
 ## Terraformのインストール
 
 ```sh
-$ sudo make init
-$ make install-tfenv
+$ sudo make init && make install-tfenv
 ```
