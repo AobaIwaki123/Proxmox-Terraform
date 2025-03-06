@@ -1,0 +1,32 @@
+version: '3'
+
+tasks:
+  help:
+    cmds:
+      - task --list
+    desc: 利用可能なタスク一覧を表示する
+
+  clean-tf:
+    cmds:
+      - ls -la | grep -e "\.terraform" -e "fstate" | awk '{print $9}' | xargs rm -rf
+    desc: Terraformの状態ファイルを全て削除する
+    silent: true
+
+  init-tf:
+    cmds:
+      - terraform init
+    desc: Terraformを初期化する
+    silent: true
+
+  apply-tf:
+    cmds:
+      - terraform apply -var-file terraform.tfvars -auto-approve
+    desc: Terraformでリソースを作成する
+    silent: true
+
+  destroy-tf:
+    cmds:
+      - terraform destroy -var-file terraform.tfvars -auto-approve
+    desc: Terraformでリソースを削除する
+    silent: true
+

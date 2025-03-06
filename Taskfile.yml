@@ -1,0 +1,44 @@
+version: '3'
+
+tasks:
+  help:
+    cmds:
+      - task --list
+    desc: ヘルプを表示
+    silent: true
+    
+  delete-all-envs:
+    cmds:
+      - rm -rf envs/*
+    desc: すべてのTerraformファイルを削除
+    silent: true
+
+  create-vm:
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM_NAME is required."
+          exit 1
+        fi
+      - cp -r template/vm envs/{{.CLI_ARGS}}
+      - echo "envs/{{.CLI_ARGS}} created."
+    desc: Proxmox VMのためのTerraform Templateを作成. 例 `task create-vm -- VM_NAME`
+    silent: true
+
+  create-ct:
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: CT_NAME is required."
+          exit 1
+        fi
+      - cp -r template/container envs/{{.CLI_ARGS}}
+      - echo "envs/{{.CLI_ARGS}} created."
+    desc: Proxmox ContainerのためのTerraform Templateを作成. 例 `task create-ct -- CT_NAME`
+    silent: true
+
+  create-provider:
+    cmds:
+      - cp modules/proxmox_vm/provider.tf.example modules/proxmox_vm/provider.tf
+    desc: Terraform Providerの設定ファイルの雛形を作成
+    silent: true

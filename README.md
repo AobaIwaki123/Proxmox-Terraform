@@ -1,8 +1,9 @@
-# Create Proxmox VM with Terraform
+# Create Proxmox VM/Container with Terraform
 
-Proxmox上にTerraformを用いてVMを作成するための設定ファイル群。  
-`proxmox provider`の`2.11`系はProxmox VEのバージョンアップに対応しておらず、`3.0.1`系は`Breaking Change`が入り、知見が少なかったため手探りで作成した。
-一応、`terraform apply`でしばらく待てば`SSH`ができるところまでは動作確認が取れた。
+自前のProxmox環境にVMやコンテナを立てるためのTerraformフレームワーク。  
+基本的なコマンドは、Taskfileに集約し、基礎となる環境ファイルは`template`ディレクトリに格納している。  
+公式のドキュメントは[こちら](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/guides/cloud-init%2520getting%2520started)。  
+絶賛`3.0.1`開発中のProxmox Providerのリポジトリは[こちら](https://github.com/Telmate/terraform-provider-proxmox)。
 
 # Version情報
 
@@ -10,8 +11,9 @@ Proxmox上にTerraformを用いてVMを作成するための設定ファイル�
 - Terraform: v1.9.8
 - tfenv: 3.0.0
 - Proxmox: 8.3.0
-- proxmox provider: 3.0.1-rc5
-
+- proxmox provider: 3.0.1-rc6
+  - Containerに関しては、`rc5`, `rc6`において[こちら](https://github.com/Telmate/terraform-provider-proxmox/issues/1172)のISSUEが存在するため、`rc4`を使用している
+ 
 # Gettig Started
 
 ## Terraformのインストール
@@ -40,6 +42,8 @@ $ pvesh create /access/users/root@pam/token/sample --privsep 0
 
 ## Provider情報のコピー
 
+- TOKENをべたがきするようになっているため、流出に注意
+
 ```sh
 $ make copy-provider
 # modules/proxmox_vm/provider.tfが作成される
@@ -65,6 +69,7 @@ $ qm set 9200 --ide2 local-lvm:cloudinit
 $ qm set 9200 --nameserver 127.0.0.53 --searchdomain localdomain
 # Convert VM to VM Template
 $ qm template 9200
+$ task create-provider
 ```
 
 ## 目的毎にTerraformの設定ファイル(env)を作成する
@@ -72,13 +77,14 @@ $ qm template 9200
 - 初めてこのリポジトリを使う場合は、既存のenvを削除する
 
 ```sh
-$ make clean-env
+$ task delete-all-envs
 ```
 
 - 以下のコマンドでenvを作成する
 
 ```bash
-$ make create-env ENV_NAME=dev
+$ task create-vm -- VM_NAME
+$ task create-ct -- CT_NAME
 ```
 
 `envs/dev/terraform.tfvars`を適宜編集する
@@ -111,4 +117,9 @@ $ make tf-apply
 # 参考
 
 - [Proxmox VEとTerraformでインターン生に仮想マシンを払い出す話](https://qiita.com/ymbk990/items/bd3973d2b858eb86e334)
+詳しい説明は、それぞれのTemplateのREADMEを参照
 
+# Docs
+
+- [Terraformのインストール](./docs/install_terraform.md)
+- [VMテンプレートの作成](./docs/create_vm_template.md)
