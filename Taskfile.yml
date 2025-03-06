@@ -40,5 +40,6 @@ tasks:
   create-provider:
     cmds:
       - cp modules/proxmox_vm/provider.tf.example modules/proxmox_vm/provider.tf
+      - cp modules/proxmox_lxc/provider.tf.example modules/proxmox_lxc/provider.tf
     desc: Terraform Providerの設定ファイルの雛形を作成
     silent: true
