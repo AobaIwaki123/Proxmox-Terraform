@@ -8,7 +8,7 @@ resource "proxmox_lxc" "basic" {
   hostname     = var.hostname
   ssh_public_keys = join("\n", var.public_key)
 
-  ostemplate   = "local:vztmpl/${var.template}.tar.zst"
+  ostemplate   = "cephfs:vztmpl/${var.template}.tar.zst"
 
   cores  = var.cores
   memory = var.memory

@@ -25,28 +25,41 @@ $ make install-tfenv # tfenvのインストール
 
 ## Proxmox API Tokenの取得
 
-Tokenの作成手順については、[こちら](https://qiita.com/ymbk990/items/bd3973d2b858eb86e334#api%E3%83%88%E3%83%BC%E3%82%AF%E3%83%B3%E3%81%AE%E5%8F%96%E5%BE%97)を参考にしました。
+まず、以下のようにロール、ユーザーを作成し、作成したロールをユーザーに割り当てる。
+以下のコマンドはPVEクラスタのノード上であればどこで実行しても良い。
+また、GUIでも作成可能だがRoleは多少面倒なのでRoleだけはコマンドで作成するのがおすすめ。
+
+### TerraformProvロールの作成
 
 ```sh
-$ pvesh create /access/users/root@pam/token/sample --privsep 0
-┌──────────────┬──────────────────────────────────────┐
-│ key          │ value                                │
-╞══════════════╪══════════════════════════════════════╡
-│ full-tokenid │ root@pam!sample                      │
-├──────────────┼──────────────────────────────────────┤
-│ info         │ {"privsep":"0"}                      │
-├──────────────┼──────────────────────────────────────┤
-│ value        │ ed1c77c5-3738-43d0-bd07-ffc7b25977fd │
-└──────────────┴──────────────────────────────────────┘
+$ pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
 ```
+
+### terraform-provユーザーの作成
+
+```sh
+$ pveum user add terraform-prov@pve --password <password>
+```
+
+### TerraformProvロールをterraform-provユーザーに割り当てる
+
+```sh
+$ pveum aclmod / -user terraform-prov@pve -role TerraformProv
+```
+
+最後に作成したユーザーを用いてGUI上で任意のidでトークンを作成する。
+以下のような画面が出ればOK
+
+![alt text](imgs/tf-token.png)
 
 ## Provider情報のコピー
 
 - TOKENをべたがきするようになっているため、流出に注意
 
 ```sh
-$ make copy-provider
-# modules/proxmox_vm/provider.tfが作成される
+$ task create-provider
+# modules/proxmox_vm/provider.tf及び
+# modules/proxmox_lxc/provider.tfが作成される
 ```
 
 `provider.tf`にProxmox API Tokenの情報を記述する
@@ -69,16 +82,9 @@ $ qm set 9200 --ide2 local-lvm:cloudinit
 $ qm set 9200 --nameserver 127.0.0.53 --searchdomain localdomain
 # Convert VM to VM Template
 $ qm template 9200
-$ task create-provider
 ```
 
 ## 目的毎にTerraformの設定ファイル(env)を作成する
-
-- 初めてこのリポジトリを使う場合は、既存のenvを削除する
-
-```sh
-$ task delete-all-envs
-```
 
 - 以下のコマンドでenvを作成する
 
