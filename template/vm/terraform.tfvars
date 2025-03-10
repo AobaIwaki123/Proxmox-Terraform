@@ -1,8 +1,8 @@
 hostname    = "example"
 username    = "aoba"
 public_key  = [
-  "ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAFENRdM4NwJfgRO/MqntSOLZxSy0fTLkj0etUL/CnakA7gNI9YuZUYQxtGVa80Oc+6bZjT38Nd6Eico5RoRVAdlzwEEfQq+iy3v/W8c0ElybiSQmPIw7Mc7KaEyUhMb1LgmVleZYsEizJV/89/lNGvPVjUXkcEZsliIMROuFepQASUiuQ== iwakiaoiyou@AobaMacBookAir.local",
-  "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNfEYHed8cVN4EOpdCpGevrhP/R5nywiOr98fy/8HSRxEOUEy8U10sQJCOMYS3DFr3qf+h35QxrZwltaDsMHN+w= root@ansible"
+  "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBIyxcxWt4PUyistoRCACnzycvyL6yi1FO0N1x0XS/Ilaexy5W0Gx0FF64rr0jbrxPKTNb3o2yS/q7jhitJwhIsQ= iwakiaoiyou@iwakiaohanoMacBook-Air.local",
+  "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBBjSSH09KDRoHPVMjNA0Huj0rw+uoZmmyD6EkuHJKWG5mXolDeFyka8CaJvW3DRWWKLB5kIwW5HeUoNqE0kN+lg= root@ansible"
   ]
 cores       = 1
 memory      = 1024
