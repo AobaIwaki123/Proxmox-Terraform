@@ -43,6 +43,11 @@ variable "nameserver" {
   type        = string
 }
 
+variable "searchdomain" {
+  description = "Search domain for the VM"
+  type        = string
+}
+
 variable "target_node" {
   description = "The Proxmox node to deploy the VM to"
   type        = string

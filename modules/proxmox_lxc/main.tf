@@ -30,4 +30,5 @@ resource "proxmox_lxc" "basic" {
   }
 
   nameserver = var.nameserver
+  searchdomain = var.searchdomain
 }

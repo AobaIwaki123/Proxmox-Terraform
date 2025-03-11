@@ -34,6 +34,7 @@ resource "proxmox_vm_qemu" "vm" {
   }
 
   nameserver = var.nameserver
+  searchdomain = var.searchdomain
 
   ipconfig0 = "ip=${var.ip_address}/24,gw=${var.gateway}"
   ciuser    = var.username
