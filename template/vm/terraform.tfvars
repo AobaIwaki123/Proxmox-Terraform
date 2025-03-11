@@ -9,6 +9,7 @@ memory      = 1024
 disk_size   = 64
 ip_address  = "192.168.11.999"
 gateway     = "192.168.11.1"
+nameserver  = "192.168.11.1"
 target_node = "pve201"
 template    = "ubuntu-24.10a" # 任意のテンプレート名
 storage     = "local-lvm"

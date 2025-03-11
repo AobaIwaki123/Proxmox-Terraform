@@ -38,6 +38,11 @@ variable "gateway" {
   type        = string
 }
 
+variable "nameserver" {
+  description = "Nameserver for the VM"
+  type        = string
+}
+
 variable "target_node" {
   description = "The Proxmox node to deploy the VM to"
   type        = string

@@ -33,6 +33,8 @@ resource "proxmox_vm_qemu" "vm" {
     firewall = false
   }
 
+  nameserver = var.nameserver
+
   ipconfig0 = "ip=${var.ip_address}/24,gw=${var.gateway}"
   ciuser    = var.username
   sshkeys   = join("\n", var.public_key)
