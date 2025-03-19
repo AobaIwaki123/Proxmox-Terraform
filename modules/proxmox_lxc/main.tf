@@ -22,10 +22,13 @@ resource "proxmox_lxc" "basic" {
     size    = "${var.disk_size}G"
   }
 
-    network {
-        name = "eth0"
-        bridge = var.bridge
-        ip = "${var.ip_address}/24"
-        gw = var.gateway
-    }
+  network {
+      name = "eth0"
+      bridge = var.bridge
+      ip = "${var.ip_address}/24"
+      gw = var.gateway
+  }
+
+  nameserver = var.nameserver
+  searchdomain = var.searchdomain
 }

@@ -8,6 +8,8 @@ module "proxmox_vm" {
   disk_size   = var.disk_size
   ip_address  = var.ip_address
   gateway     = var.gateway
+  nameserver  = var.nameserver
+  searchdomain = var.searchdomain
   target_node = var.target_node
   template    = var.template
   storage     = var.storage
