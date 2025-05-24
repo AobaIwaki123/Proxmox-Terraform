@@ -5,7 +5,10 @@ resource "proxmox_vm_qemu" "vm" {
   os_type     = "cloud-init"
   boot        = "order=virtio0"
 
-  cores   = var.cores
+  cpu {
+    cores = var.cores
+  }
+  
   memory  = var.memory
 
   disks {
