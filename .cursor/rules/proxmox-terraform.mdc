@@ -1,0 +1,190 @@
+---
+description: "Proxmox-Terraform プロジェクトの開発ガイドライン"
+globs: ["**/*.tf", "**/*.tfvars", "**/*.yml", "**/*.yaml", "**/*.sh", "**/Makefile", "**/README.md"]
+alwaysApply: true
+---
+
+# Proxmox-Terraform プロジェクトルール
+
+## 🏗️ プロジェクト概要
+
+このプロジェクトは、Proxmox VE環境でVMとLXCコンテナを管理するためのTerraformフレームワークです。
+モジュール化されたアーキテクチャとテンプレートシステムを使用してインフラストラクチャをコードで管理します。
+
+## 📋 技術スタック
+
+- **Terraform**: v1.9.8
+- **Proxmox Provider**: 3.0.1-rc6 (LXCは rc4を使用)
+- **Proxmox VE**: 8.3.0
+- **Ubuntu Template**: 24.10
+- **Task Runner**: Taskfile v3, Makefile
+
+## 📁 プロジェクト構造
+
+```
+/
+├── modules/           # 再利用可能なTerraformモジュール
+│   ├── proxmox_vm/   # VM作成モジュール
+│   └── proxmox_lxc/  # LXCコンテナ作成モジュール
+├── template/         # 環境テンプレート
+│   ├── vm/          # VM環境テンプレート
+│   └── container/   # コンテナ環境テンプレート
+├── envs/            # 実際の環境設定（動的に作成）
+│   └── {ENV_NAME}/
+└── scripts/         # ユーティリティスクリプト
+```
+
+## 🔧 開発ルール
+
+### Terraformコーディング規約
+
+#### 変数定義
+```terraform
+variable "variable_name" {
+  description = "明確な説明文を記述する"
+  type        = string|number|bool|list(string)
+  # validation ブロックも必要に応じて追加
+}
+```
+
+#### リソース命名
+- VM: `proxmox_vm_qemu.vm`
+- LXC: `proxmox_lxc.basic`
+- 一貫性のある命名パターンを使用
+
+#### ファイル構成
+- `main.tf`: リソース定義
+- `variables.tf`: 変数定義（注意: プロジェクト固有で`varialbles.tf`と表記）
+- `outputs.tf`: 出力定義
+- `provider.tf`: プロバイダー設定（機密情報含む）
+
+### モジュール参照
+```terraform
+module "proxmox_vm" {
+  source = "../../modules/proxmox_vm"
+  # 相対パスを使用
+}
+```
+
+### 必須変数セット
+
+#### VM用変数
+- `hostname`, `username`, `public_key`
+- `cores`, `memory`, `disk_size`
+- `ip_address`, `gateway`, `nameserver`, `searchdomain`
+- `target_node`, `template`, `storage`, `bridge`, `vmid`
+
+#### LXC用変数（usernameを除く）
+- VM用変数から`username`を除いたセット
+
+## 🔐 セキュリティルール
+
+### プロバイダー設定
+1. `provider.tf.example`をベースに`provider.tf`を作成
+2. APIトークンは環境変数または`terraform.tfvars`で管理
+3. `provider.tf`をコミットに含めない
+
+### 機密情報管理
+- APIトークン、パスワードはハードコード禁止
+- `terraform.tfvars`で機密情報を管理
+- サンプル値は安全なダミー値を使用
+
+## 🚀 ワークフロー
+
+### 新環境作成
+```bash
+# VM環境
+task create-vm -- {VM_NAME}
+
+# コンテナ環境
+task create-ct -- {CT_NAME}
+
+# プロバイダー設定
+task create-provider
+```
+
+### 環境デプロイ
+```bash
+cd envs/{ENV_NAME}
+task init-tf
+task apply-tf
+# 削除時
+task destroy-tf
+```
+
+## 📝 コメントとドキュメント
+
+### コメント規約
+```terraform
+# 日本語コメントを積極的に使用
+resource "proxmox_vm_qemu" "vm" {
+  name       = var.hostname
+  # Cloud-initの設定を書き込むためのディスク
+  disks {
+    ide {
+      ide2 {
+        cloudinit {
+          storage = var.storage
+        }
+      }
+    }
+  }
+}
+```
+
+### README記述
+- 各テンプレート、モジュールにREADME.mdを配置
+- 設定例とワークフローを明記
+- 日本語での記述を推奨
+
+## ⚠️ 注意事項
+
+### Proxmox Provider版数
+- **VM**: rc6を使用
+- **LXC**: rc4を使用（rc5, rc6の既知の問題のため）
+- バージョンの混在に注意
+
+### IPアドレス管理
+- 形式: `192.168.11.xxx/24`
+- VMIDとIPアドレス末尾の統一推奨
+- 重複回避のための管理表作成推奨
+
+### ネットワーク設定
+- デフォルトブリッジ: `vmbr0`
+- ゲートウェイ: `192.168.11.1`
+- ネームサーバー設定の統一
+
+## 🧪 テストとデバッグ
+
+### 事前検証
+```bash
+terraform fmt      # フォーマット確認
+terraform validate # 構文検証  
+terraform plan     # 実行計画確認
+```
+
+### デバッグ手順
+1. `terraform plan`で変更内容確認
+2. `terraform.tfvars`の設定値確認
+3. プロバイダー設定の確認
+4. 必要に応じて状態ファイル確認
+
+## 🔄 メンテナンス
+
+### バージョンアップデート
+- Terraform本体のバージョン管理はtfenvを使用
+- プロバイダーバージョンは慎重にアップデート
+- 3.0.1正式版リリース後の移行計画を立案
+
+### 状態管理
+- リモートステート使用を検討
+- 定期的なバックアップ
+- 複数環境での状態ファイル管理
+
+---
+
+@file modules/proxmox_vm/main.tf
+@file modules/proxmox_lxc/main.tf
+@file template/vm/main.tf
+@file template/container/main.tf
+@file Taskfile.yml
