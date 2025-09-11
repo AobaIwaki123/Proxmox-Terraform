@@ -1,0 +1,384 @@
+---
+description: "Task Runner（Taskfile.yml/Makefile）の使用方法とワークフロー"
+globs: ["**/Taskfile.yml", "**/Makefile"]
+---
+
+# Task Runner ワークフロー
+
+## 🚀 Task Runnerの概要
+
+このプロジェクトでは、以下のタスクランナーを使用:
+- **Taskfile v3**: メインのタスク管理
+- **Makefile**: レガシーサポート・特定環境向け
+
+## 📋 利用可能なタスク
+
+### プロジェクトレベルタスク (ルートディレクトリ)
+
+```bash
+# ヘルプ表示
+task help
+task --list
+
+# 新しいVM環境の作成
+task create-vm -- my-vm-name
+
+# 新しいコンテナ環境の作成  
+task create-ct -- my-container-name
+
+# プロバイダー設定ファイルの作成
+task create-provider
+
+# 全環境の削除 (注意: 破壊的操作)
+task delete-all-envs
+```
+
+### 環境レベルタスク (envs/{環境名}ディレクトリ)
+
+```bash
+# Terraform初期化
+task init-tf
+
+# Terraform計画表示
+task plan-tf
+
+# Terraform適用
+task apply-tf
+
+# Terraform破棄
+task destroy-tf
+
+# フォーマット・バリデーション
+task fmt-tf
+task validate-tf
+```
+
+## 🛠️ 標準ワークフロー
+
+### 1. 新規VM環境の作成・デプロイ
+```bash
+# 1. ルートディレクトリで新環境作成
+task create-vm -- web-server-01
+
+# 2. 作成された環境ディレクトリに移動
+cd envs/web-server-01
+
+# 3. terraform.tfvars を編集
+# hostname, ip_address, vmid などを設定
+
+# 4. プロバイダー設定 (初回のみ)
+cd ../../
+task create-provider
+
+# 5. 環境ディレクトリに戻る
+cd envs/web-server-01
+
+# 6. 初期化とデプロイ
+task init-tf
+task plan-tf  # 計画の確認
+task apply-tf # 適用
+
+# 7. 動作確認
+ssh username@ip-address
+```
+
+### 2. 新規LXCコンテナ環境の作成・デプロイ
+```bash
+# 1. 新環境作成
+task create-ct -- app-container-01
+
+# 2. 設定・デプロイ
+cd envs/app-container-01
+# terraform.tfvars編集後...
+task init-tf
+task apply-tf
+```
+
+### 3. 既存環境の変更
+```bash
+cd envs/existing-env
+
+# 1. 設定変更
+# terraform.tfvars または varialbles.tf を編集
+
+# 2. 変更内容の確認
+task plan-tf
+
+# 3. 変更適用
+task apply-tf
+```
+
+### 4. 環境の削除
+```bash
+cd envs/env-to-delete
+
+# 1. リソース削除
+task destroy-tf
+
+# 2. ディレクトリ削除 (手動)
+cd ../../
+rm -rf envs/env-to-delete
+```
+
+## ⚙️ Taskfile.yml の構造解説
+
+### ルートディレクトリのTaskfile.yml
+```yaml
+version: '3'
+
+tasks:
+  help:
+    cmds:
+      - task --list
+    desc: ヘルプを表示
+    silent: true
+    
+  create-vm:
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM_NAME is required."
+          exit 1
+        fi
+      - cp -r template/vm envs/{{.CLI_ARGS}}
+      - echo "envs/{{.CLI_ARGS}} created."
+    desc: Proxmox VMのためのTerraform Templateを作成
+    silent: true
+
+  create-ct:
+    cmds:
+      - |
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: CT_NAME is required."
+          exit 1
+        fi
+      - cp -r template/container envs/{{.CLI_ARGS}}
+      - echo "envs/{{.CLI_ARGS}} created."
+    desc: Proxmox ContainerのためのTerraform Template作成
+    silent: true
+
+  create-provider:
+    cmds:
+      - cp modules/proxmox_vm/provider.tf.example modules/proxmox_vm/provider.tf
+      - cp modules/proxmox_lxc/provider.tf.example modules/proxmox_lxc/provider.tf
+    desc: Terraform Providerの設定ファイル雛形を作成
+    silent: true
+
+  delete-all-envs:
+    cmds:
+      - rm -rf envs/*
+    desc: すべてのTerraformファイルを削除
+    silent: true
+```
+
+### 環境ディレクトリのTaskfile.yml
+```yaml
+version: '3'
+
+tasks:
+  init-tf:
+    cmds:
+      - terraform init
+    desc: Terraform初期化
+
+  plan-tf:
+    cmds:
+      - terraform plan
+    desc: Terraform実行計画表示
+
+  apply-tf:
+    cmds:
+      - terraform apply
+    desc: Terraform適用
+
+  destroy-tf:
+    cmds:
+      - terraform destroy
+    desc: Terraform破棄
+
+  fmt-tf:
+    cmds:
+      - terraform fmt
+    desc: Terraformフォーマット
+
+  validate-tf:
+    cmds:
+      - terraform validate
+    desc: Terraform構文検証
+```
+
+## 🎯 タスクのカスタマイズ例
+
+### 追加の便利タスク
+```yaml
+# 環境用Taskfile.ymlに追加可能なタスク
+
+tasks:
+  # 事前チェック
+  check:
+    cmds:
+      - terraform fmt -check
+      - terraform validate
+      - terraform plan
+    desc: フォーマット・構文・計画の一括確認
+
+  # SSH接続
+  ssh:
+    cmds:
+      - |
+        IP=$(terraform output -raw ip_address 2>/dev/null || echo "未適用")
+        USER=$(terraform output -raw username 2>/dev/null || echo "aoba")
+        if [ "$IP" != "未適用" ]; then
+          ssh $USER@$IP
+        else
+          echo "環境が未適用またはIPアドレスが取得できません"
+        fi
+    desc: 作成したVMにSSH接続
+
+  # 状態確認
+  status:
+    cmds:
+      - terraform state list
+      - terraform output
+    desc: 現在の状態とアウトプット表示
+
+  # ログ確認
+  logs:
+    cmds:
+      - |
+        if [ -f .terraform/terraform.log ]; then
+          tail -50 .terraform/terraform.log
+        else
+          echo "ログファイルが見つかりません"
+        fi
+    desc: Terraformログの表示
+
+  # バックアップ
+  backup:
+    cmds:
+      - cp terraform.tfstate terraform.tfstate.backup.$(date +%Y%m%d_%H%M%S)
+    desc: 状態ファイルのバックアップ作成
+```
+
+### 条件付き実行の例
+```yaml
+tasks:
+  deploy:
+    cmds:
+      - |
+        if [ ! -f "terraform.tfvars" ]; then
+          echo "❌ terraform.tfvars が見つかりません"
+          exit 1
+        fi
+      - |
+        if [ ! -f "../../modules/proxmox_vm/provider.tf" ]; then
+          echo "⚠️  プロバイダー設定が見つかりません。作成しますか？"
+          echo "実行: task create-provider"
+          exit 1
+        fi
+      - terraform init
+      - terraform plan
+      - |
+        echo "上記の計画で実行しますか？ (y/N)"
+        read answer
+        if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+          terraform apply
+        else
+          echo "キャンセルされました"
+        fi
+    desc: 対話的なデプロイ実行
+```
+
+## 🔧 Makefile サポート
+
+### 基本的なMakefileタスク
+```makefile
+# Makefile (レガシーサポート)
+
+.PHONY: help init plan apply destroy
+
+help:
+	@echo "利用可能なターゲット:"
+	@echo "  init    - Terraform初期化"
+	@echo "  plan    - 実行計画表示"
+	@echo "  apply   - 変更適用"
+	@echo "  destroy - リソース削除"
+
+init:
+	terraform init
+
+plan:
+	terraform plan
+
+apply:
+	terraform apply
+
+destroy:
+	terraform destroy
+
+fmt:
+	terraform fmt
+
+validate:
+	terraform validate
+```
+
+## 📊 使用統計・ベストプラクティス
+
+### よく使うタスクの順序
+1. `task create-vm` / `task create-ct` - 環境作成
+2. `task create-provider` - プロバイダー設定 (初回のみ)
+3. `task init-tf` - 初期化
+4. `task plan-tf` - 計画確認
+5. `task apply-tf` - 適用
+
+### 推奨される作業パターン
+```bash
+# 開発パターン
+task create-vm -- dev-test
+cd envs/dev-test
+# terraform.tfvars 編集
+task init-tf && task plan-tf && task apply-tf
+
+# プロダクションパターン  
+task create-vm -- prod-web-01
+cd envs/prod-web-01
+# 慎重に terraform.tfvars 編集・レビュー
+task init-tf
+task plan-tf  # 内容を慎重に確認
+task apply-tf
+```
+
+### エラー時の対処パターン
+```bash
+# 1. 構文エラー時
+task validate-tf  # エラー詳細確認
+# varialbles.tf または main.tf を修正
+
+# 2. プロバイダーエラー時
+cd ../../
+task create-provider
+# modules/*/provider.tf を編集
+
+# 3. 状態不整合時
+terraform refresh
+terraform plan  # 差分確認
+```
+
+## 🚨 注意事項
+
+### 破壊的操作の注意
+- `task delete-all-envs`: 全環境削除 (危険)
+- `task destroy-tf`: 指定環境のリソース削除
+
+### セキュリティ考慮事項
+- `terraform.tfvars` の内容は機密情報扱い
+- プロバイダー設定ファイルはコミット禁止
+- 本番環境では十分な確認後に実行
+
+---
+
+参照ファイル:
+- [Taskfile.yml](mdc:Taskfile.yml)
+- [template/vm/Taskfile.yml](mdc:template/vm/Taskfile.yml)
+- [docs/Makefile](mdc:docs/Makefile)

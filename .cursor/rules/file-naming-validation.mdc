@@ -1,0 +1,351 @@
+---
+description: "ファイル命名規約、バリデーション、プロジェクト構造の管理"
+globs: ["**/*.tf", "**/Taskfile.yml", "**/Makefile", "**/README.md"]
+---
+
+# ファイル命名・バリデーション規約
+
+## 📁 ファイル命名規約
+
+### 標準ファイル構成
+各環境・モジュールディレクトリには以下のファイルを配置:
+
+```
+module_or_env_directory/
+├── main.tf              # メインのリソース定義
+├── varialbles.tf        # 変数定義 (※スペルに注意)
+├── outputs.tf           # 出力定義 (必要に応じて)
+├── provider.tf          # プロバイダー設定 (機密情報含む)
+├── terraform.tfvars     # 実際の設定値
+├── README.md            # ドキュメント
+└── Taskfile.yml         # タスク定義 (templateディレクトリ)
+```
+
+### 重要な命名規則
+⚠️ **プロジェクト固有の命名規約**:
+- `variables.tf` ではなく **`varialbles.tf`** を使用
+- この命名は歴史的経緯によるもので、プロジェクト全体で一貫性を保つため維持
+- 新規作成時も必ず `varialbles.tf` という名前を使用
+
+### ディレクトリ命名規約
+```
+/
+├── modules/
+│   ├── proxmox_vm/      # VM作成モジュール
+│   └── proxmox_lxc/     # LXCコンテナ作成モジュール
+├── template/
+│   ├── vm/              # VM環境テンプレート
+│   └── container/       # コンテナ環境テンプレート
+├── envs/
+│   └── {環境名}/        # 動的に作成される実環境
+├── scripts/             # ユーティリティスクリプト
+└── docs/               # ドキュメント類
+```
+
+## ✅ バリデーション規約
+
+### 変数バリデーションの標準形式
+```terraform
+variable "hostname" {
+  description = "ホスト名 (英数字とハイフンのみ、3-63文字)"
+  type        = string
+  
+  validation {
+    condition = can(regex("^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]$", var.hostname))
+    error_message = "ホスト名は英数字とハイフンのみで、3-63文字である必要があります。"
+  }
+}
+
+variable "ip_address" {
+  description = "IPアドレス (192.168.11.xxx形式)"
+  type        = string
+  
+  validation {
+    condition = can(regex("^192\\.168\\.11\\.[0-9]{1,3}$", var.ip_address))
+    error_message = "IPアドレスは192.168.11.xxx形式である必要があります。"
+  }
+}
+
+variable "vmid" {
+  description = "VM ID (100-999の範囲)"
+  type        = number
+  
+  validation {
+    condition = var.vmid >= 100 && var.vmid <= 999
+    error_message = "VM IDは100から999の間である必要があります。"
+  }
+}
+
+variable "cores" {
+  description = "CPUコア数 (1-8コア)"
+  type        = number
+  default     = 1
+  
+  validation {
+    condition = var.cores >= 1 && var.cores <= 8
+    error_message = "CPUコア数は1から8の間である必要があります。"
+  }
+}
+
+variable "memory" {
+  description = "メモリ容量 (MB単位、最小512MB)"
+  type        = number
+  default     = 1024
+  
+  validation {
+    condition = var.memory >= 512 && var.memory <= 16384
+    error_message = "メモリ容量は512MBから16GBの間である必要があります。"
+  }
+}
+
+variable "disk_size" {
+  description = "ディスク容量 (GB単位、最小10GB)"
+  type        = number
+  
+  validation {
+    condition = var.disk_size >= 10 && var.disk_size <= 500
+    error_message = "ディスク容量は10GBから500GBの間である必要があります。"
+  }
+}
+
+variable "public_key" {
+  description = "SSH公開鍵のリスト"
+  type        = list(string)
+  
+  validation {
+    condition = length(var.public_key) > 0
+    error_message = "最低1つのSSH公開鍵が必要です。"
+  }
+}
+```
+
+### ネットワーク関連バリデーション
+```terraform
+variable "gateway" {
+  description = "ゲートウェイアドレス"
+  type        = string
+  default     = "192.168.11.1"
+  
+  validation {
+    condition = can(regex("^192\\.168\\.11\\.1$", var.gateway))
+    error_message = "ゲートウェイは192.168.11.1である必要があります。"
+  }
+}
+
+variable "nameserver" {
+  description = "DNSサーバーアドレス"
+  type        = string
+  default     = "192.168.11.1"
+  
+  validation {
+    condition = can(regex("^(192\\.168\\.11\\.1|8\\.8\\.8\\.8|1\\.1\\.1\\.1)$", var.nameserver))
+    error_message = "DNSサーバーは192.168.11.1、8.8.8.8、または1.1.1.1である必要があります。"
+  }
+}
+
+variable "bridge" {
+  description = "ネットワークブリッジ名"
+  type        = string
+  default     = "vmbr0"
+  
+  validation {
+    condition = can(regex("^vmbr[0-9]+$", var.bridge))
+    error_message = "ブリッジ名はvmbrXX形式である必要があります (例: vmbr0)。"
+  }
+}
+```
+
+### Proxmox固有バリデーション
+```terraform
+variable "target_node" {
+  description = "Proxmoxターゲットノード名"
+  type        = string
+  
+  validation {
+    condition = can(regex("^pve[0-9]+$", var.target_node))
+    error_message = "ノード名はpveXXX形式である必要があります (例: pve201)。"
+  }
+}
+
+variable "storage" {
+  description = "ストレージ名"
+  type        = string
+  default     = "local-lvm"
+  
+  validation {
+    condition = contains(["local-lvm", "local", "cephfs"], var.storage)
+    error_message = "ストレージはlocal-lvm、local、またはcephfsである必要があります。"
+  }
+}
+
+variable "template" {
+  description = "テンプレート名"
+  type        = string
+  
+  validation {
+    condition = length(var.template) > 0
+    error_message = "テンプレート名は空文字列であってはいけません。"
+  }
+}
+```
+
+## 🔍 事前検証スクリプト
+
+### terraform.tfvarsの検証
+```bash
+#!/bin/bash
+# validate-tfvars.sh
+
+echo "🔍 terraform.tfvars バリデーション開始"
+
+# 必須項目の存在確認
+required_vars=("hostname" "ip_address" "vmid" "cores" "memory" "disk_size")
+
+for var in "${required_vars[@]}"; do
+    if ! grep -q "^${var}" terraform.tfvars; then
+        echo "❌ 必須項目が不足: ${var}"
+        exit 1
+    fi
+done
+
+# IPアドレス形式の確認
+ip=$(grep "^ip_address" terraform.tfvars | cut -d'"' -f2)
+if [[ ! $ip =~ ^192\.168\.11\.[0-9]+$ ]]; then
+    echo "❌ IPアドレス形式が不正: $ip"
+    exit 1
+fi
+
+# VMID範囲の確認
+vmid=$(grep "^vmid" terraform.tfvars | grep -o '[0-9]\+')
+if [ "$vmid" -lt 100 ] || [ "$vmid" -gt 999 ]; then
+    echo "❌ VMID範囲が不正: $vmid (100-999)"
+    exit 1
+fi
+
+echo "✅ バリデーション完了"
+```
+
+### ファイル構造の検証
+```bash
+#!/bin/bash
+# validate-structure.sh
+
+echo "🔍 プロジェクト構造バリデーション開始"
+
+# 必須ファイルの存在確認
+check_files=(
+    "main.tf"
+    "varialbles.tf"  # 注意: このスペルが正しい
+    "terraform.tfvars"
+)
+
+for file in "${check_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "❌ 必須ファイルが不足: $file"
+        exit 1
+    fi
+done
+
+# varialbles.tf のスペルチェック
+if [ -f "variables.tf" ] && [ ! -f "varialbles.tf" ]; then
+    echo "❌ ファイル名が不正: variables.tf → varialbles.tf に変更してください"
+    exit 1
+fi
+
+echo "✅ 構造バリデーション完了"
+```
+
+## 📋 チェックリスト
+
+### 新規環境作成時
+- [ ] ディレクトリ名が適切 (英数字とハイフン)
+- [ ] `varialbles.tf` という名前で変数ファイルを作成
+- [ ] 各変数にvalidationブロックを追加
+- [ ] terraform.tfvarsにサンプル値を設定
+- [ ] README.mdに環境固有の情報を記載
+
+### 変数追加時
+- [ ] 変数名がsnake_case形式
+- [ ] 適切なtypeを指定
+- [ ] descriptionを日本語で記載
+- [ ] 必要に応じてvalidationブロックを追加
+- [ ] デフォルト値が適切
+
+### デプロイ前
+- [ ] `terraform fmt` でフォーマット確認
+- [ ] `terraform validate` で構文確認
+- [ ] バリデーションエラーがない
+- [ ] IP・VMID重複確認
+
+## 🧪 テスト手順
+
+### 構文・フォーマット確認
+```bash
+# フォーマット確認と修正
+terraform fmt -check
+terraform fmt
+
+# 構文バリデーション
+terraform validate
+
+# 計画の確認
+terraform plan
+```
+
+### バリデーション条件のテスト
+```bash
+# 不正な値でのテスト例
+echo 'vmid = 50' >> terraform.tfvars.test
+terraform validate -var-file=terraform.tfvars.test
+# → バリデーションエラーが発生することを確認
+
+echo 'ip_address = "10.0.0.1"' >> terraform.tfvars.test  
+terraform validate -var-file=terraform.tfvars.test
+# → バリデーションエラーが発生することを確認
+```
+
+## 🔧 自動化ツール
+
+### pre-commit hook設定
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit
+
+echo "🔍 Terraform 事前チェック実行中..."
+
+# フォーマットチェック
+terraform fmt -check
+if [ $? -ne 0 ]; then
+    echo "❌ Terraformフォーマットエラー"
+    exit 1
+fi
+
+# バリデーションチェック
+terraform validate
+if [ $? -ne 0 ]; then
+    echo "❌ Terraform構文エラー"
+    exit 1
+fi
+
+echo "✅ 事前チェック完了"
+```
+
+### Makefile/Taskfileタスク
+```yaml
+# Taskfile.yml に追加
+tasks:
+  validate-all:
+    desc: "全体バリデーション実行"
+    cmds:
+      - terraform fmt -check
+      - terraform validate
+      - ./scripts/validate-structure.sh
+      - ./scripts/validate-tfvars.sh
+```
+
+---
+
+参照ファイル:
+- [varialbles.tf](mdc:template/vm/varialbles.tf)
+- [terraform.tfvars](mdc:template/vm/terraform.tfvars)
+- [Taskfile.yml](mdc:Taskfile.yml)

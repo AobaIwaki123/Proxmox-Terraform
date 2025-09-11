@@ -1,0 +1,255 @@
+---
+description: "Terraform開発のベストプラクティスとコーディング規約"
+globs: ["**/*.tf", "**/*.tfvars"]
+---
+
+# Terraform ベストプラクティス
+
+## 🎯 コーディング規約
+
+### 変数定義の標準形式
+```terraform
+variable "variable_name" {
+  description = "変数の詳細な説明文を日本語で記述"
+  type        = string  # または number, bool, list(string), map(string)
+  default     = null    # デフォルト値がある場合
+  
+  validation {
+    condition     = length(var.variable_name) > 0
+    error_message = "変数は空文字列であってはいけません。"
+  }
+}
+```
+
+### リソース命名規約
+- **VM**: `proxmox_vm_qemu.vm` (固定)
+- **LXC**: `proxmox_lxc.basic` (固定)  
+- **Output**: リソース名に対応した明確な名前
+- **Variable**: snake_case形式を使用
+
+### ファイル構成の標準
+各ディレクトリには以下のファイルを配置:
+- `main.tf`: メインのリソース定義
+- `varialbles.tf`: 変数定義 (**注意**: `variables.tf`ではなく`varialbles.tf`)
+- `outputs.tf`: 出力定義 (必要に応じて)
+- `provider.tf`: プロバイダー設定 (機密情報含む、.gitignore対象)
+- `terraform.tfvars`: 設定値 (サンプル値を含む)
+
+### モジュール参照パターン
+```terraform
+module "proxmox_vm" {
+  source = "../../modules/proxmox_vm"
+  
+  # 必須変数の明示的な指定
+  hostname      = var.hostname
+  username      = var.username
+  public_key    = var.public_key
+  cores         = var.cores
+  memory        = var.memory
+  disk_size     = var.disk_size
+  ip_address    = var.ip_address
+  gateway       = var.gateway
+  nameserver    = var.nameserver
+  searchdomain  = var.searchdomain
+  target_node   = var.target_node
+  template      = var.template
+  storage       = var.storage
+  bridge        = var.bridge
+  vmid          = var.vmid
+}
+```
+
+## 🔧 設定値の標準
+
+### VM用変数セット (必須)
+- `hostname`: ホスト名
+- `username`: ユーザー名 (VM専用)
+- `public_key`: SSH公開鍵リスト
+- `cores`: CPUコア数
+- `memory`: メモリ容量 (MB)
+- `disk_size`: ディスク容量 (GB)
+- `ip_address`: IPアドレス
+- `gateway`: ゲートウェイ
+- `nameserver`: ネームサーバー
+- `searchdomain`: 検索ドメイン
+- `target_node`: Proxmoxノード名
+- `template`: テンプレート名
+- `storage`: ストレージ名
+- `bridge`: ネットワークブリッジ
+- `vmid`: VM ID
+
+### LXC用変数セット (必須)
+VM用変数セットから`username`を除いたすべて
+
+### デフォルト値推奨設定
+```terraform
+# ネットワーク設定
+gateway     = "192.168.11.1"
+nameserver  = "192.168.11.1"
+searchdomain = "local"
+bridge      = "vmbr0"
+
+# ハードウェア設定 (最小構成)
+cores      = 1
+memory     = 1024  # 1GB
+disk_size  = 64    # VM: 64GB, LXC: 32GB推奨
+
+# Proxmox設定
+target_node = "pve201"  # 環境に応じて調整
+storage     = "local-lvm"
+```
+
+## 📝 コメント規約
+
+### 日本語コメントの積極的使用
+```terraform
+# VM の基本設定
+resource "proxmox_vm_qemu" "vm" {
+  name        = var.hostname
+  target_node = var.target_node
+  clone       = var.template
+  
+  # Cloud-init用のOS設定
+  os_type = "cloud-init"
+  boot    = "order=virtio0"
+  
+  # CPU設定
+  cpu {
+    cores = var.cores
+  }
+  
+  # メモリ設定 (MB単位)
+  memory = var.memory
+  
+  # ディスク設定
+  disks {
+    # Cloud-initの設定を書き込むためのディスク
+    ide {
+      ide2 {
+        cloudinit {
+          storage = var.storage
+        }
+      }
+    }
+    # データ用のメインディスク
+    virtio {
+      virtio0 {
+        disk {
+          size    = "${var.disk_size}G"
+          storage = var.storage
+        }
+      }
+    }
+  }
+}
+```
+
+### ブロックコメントの使い方
+```terraform
+/*
+複数行にわたる詳細な説明が必要な場合の
+コメント形式
+
+設定の背景:
+- Proxmox Provider 3.0.2-rc01の仕様に基づく
+- Cloud-initを使用したプロビジョニング
+- virtio ドライバーによる高性能I/O
+*/
+```
+
+## 🚀 デプロイメント手順
+
+### 標準ワークフロー
+```bash
+# 1. 環境作成
+task create-vm -- my-vm-name
+# または
+task create-ct -- my-container-name
+
+# 2. 設定ディレクトリへ移動
+cd envs/my-vm-name
+
+# 3. terraform.tfvars の編集
+# hostname, ip_address, vmid を適切に設定
+
+# 4. プロバイダー設定 (初回のみ)
+task create-provider
+
+# 5. Terraform 初期化
+task init-tf
+
+# 6. 実行計画の確認
+terraform plan
+
+# 7. 適用
+task apply-tf
+
+# 8. 削除 (必要時)
+task destroy-tf
+```
+
+### 事前検証チェックリスト
+- [ ] `terraform fmt` でフォーマット確認
+- [ ] `terraform validate` で構文確認
+- [ ] `terraform plan` で変更内容確認
+- [ ] `terraform.tfvars` の設定値確認
+- [ ] IP アドレスとVMIDの重複確認
+- [ ] プロバイダー設定の確認
+
+## ⚠️ 注意事項
+
+### IPアドレス管理
+- 形式: `192.168.11.xxx` (サブネットマスクは /24)
+- VMID と IP アドレス末尾の統一を推奨
+- 重複回避のための管理表作成を強く推奨
+
+### ファイル命名の注意点
+- **重要**: `variables.tf` ではなく `varialbles.tf` がプロジェクト標準
+- この命名規約は歴史的経緯によるもので、一貫性のため維持
+
+### バージョン固定
+- Proxmox Provider: 3.0.2-rc01 で固定
+- Terraform: v1.9.8 推奨
+- アップデート時は十分なテストを実施
+
+## 🧪 トラブルシューティング
+
+### よくある問題と解決方法
+
+#### 1. プロバイダー認証エラー
+```bash
+# provider.tf の設定確認
+cat modules/proxmox_vm/provider.tf
+cat modules/proxmox_lxc/provider.tf
+
+# API トークンの確認
+terraform plan  # エラーメッセージの詳細確認
+```
+
+#### 2. IP アドレス重複エラー
+```bash
+# 既存VM/LXCのIP確認
+# Proxmox WebUI で確認するか、以下で状態確認
+terraform state list
+terraform state show <resource_name>
+```
+
+#### 3. テンプレート不存在エラー
+```bash
+# 利用可能なテンプレート確認
+# Proxmox WebUI の「データセンター」→「ストレージ」で確認
+```
+
+#### 4. ディスク容量不足
+```bash
+# ストレージ使用量確認
+# Proxmox WebUI の「ノード」→「ディスク」で確認
+```
+
+---
+
+参照ファイル:
+- [main.tf](mdc:modules/proxmox_vm/main.tf)
+- [variables.tf](mdc:modules/proxmox_vm/variables.tf) 
+- [provider.tf.example](mdc:modules/proxmox_vm/provider.tf.example)
+- [Taskfile.yml](mdc:Taskfile.yml)

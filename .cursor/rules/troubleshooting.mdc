@@ -1,0 +1,385 @@
+---
+description: "トラブルシューティング、デバッグ、よくある問題の解決方法"
+globs: ["**/*.tf", "**/*.log", "**/terraform.tfstate*"]
+---
+
+# トラブルシューティング・デバッグガイド
+
+## 🚨 よくある問題と解決方法
+
+### 1. Proxmox Provider関連エラー
+
+#### API認証エラー
+```
+Error: error creating client: error creating PVE client: authentication failed
+```
+
+**原因と解決方法:**
+```bash
+# 1. API URLの確認
+grep "pm_api_url" modules/*/provider.tf
+# 正しい形式: https://proxmox-server:8006/api2/json
+
+# 2. APIトークンの確認
+# Proxmox WebUI → データセンター → 権限 → APIトークン で確認
+
+# 3. プロバイダー設定の再作成
+task create-provider
+# modules/proxmox_vm/provider.tf を実際の値で編集
+```
+
+#### TLS証明書エラー
+```
+Error: x509: certificate signed by unknown authority
+```
+
+**解決方法:**
+```terraform
+# provider.tf に追加
+provider "proxmox" {
+  pm_api_url          = "https://your-proxmox:8006/api2/json"
+  pm_api_token_id     = "your-token-id"
+  pm_api_token_secret = "your-token-secret"
+  pm_tls_insecure     = true  # ← 追加
+}
+```
+
+### 2. リソース作成エラー
+
+#### VM作成失敗
+```
+Error: error creating VM: 400 Parameter verification failed
+```
+
+**デバッグ手順:**
+```bash
+# 1. terraform.tfvars の設定値確認
+cat terraform.tfvars
+
+# 2. テンプレートの存在確認
+# Proxmox WebUI でテンプレート確認
+
+# 3. IPアドレス重複確認
+# 既存VMのIP確認
+
+# 4. VMID重複確認
+# Proxmox WebUI で使用中のVMID確認
+
+# 5. ストレージ容量確認
+# Proxmox WebUI → ノード → ディスク
+```
+
+#### LXCコンテナ作成失敗
+```
+Error: error creating container: template not found
+```
+
+**解決方法:**
+```bash
+# 1. 利用可能なテンプレート確認
+# Proxmox WebUI → ストレージ → CT Templates
+
+# 2. terraform.tfvars のテンプレート名確認
+grep "template" terraform.tfvars
+# 例: template = "ubuntu-24.10-standard_24.10-1_amd64"
+
+# 3. ostemplate の形式確認 (modules/proxmox_lxc/main.tf)
+# 正しい形式: "cephfs:vztmpl/${var.template}.tar.zst"
+```
+
+### 3. ネットワーク関連エラー
+
+#### IP重複エラー
+```
+Error: IP address already in use
+```
+
+**解決手順:**
+```bash
+# 1. 既存IPアドレスの確認
+# Proxmox WebUIで全VM/LXCのIP確認
+
+# 2. 利用可能なIPアドレス範囲の確認
+# 192.168.11.100-254 の範囲で未使用を選択
+
+# 3. terraform.tfvars 更新
+sed -i 's/ip_address = "192.168.11.999"/ip_address = "192.168.11.201"/' terraform.tfvars
+
+# 4. VMID も合わせて更新
+sed -i 's/vmid = 999/vmid = 201/' terraform.tfvars
+```
+
+#### SSH接続不可
+```
+ssh: connect to host 192.168.11.xxx port 22: Connection refused
+```
+
+**デバッグ手順:**
+```bash
+# 1. VM起動状態確認
+# Proxmox WebUI でVM状態確認
+
+# 2. cloud-init ログ確認
+# Proxmox WebUI → VM → ログ
+
+# 3. SSH鍵の確認
+ssh-keygen -l -f ~/.ssh/id_ed25519.pub
+grep "public_key" terraform.tfvars
+
+# 4. ネットワーク接続確認
+ping 192.168.11.xxx
+```
+
+### 4. Terraform状態関連エラー
+
+#### 状態ファイル不整合
+```
+Error: Resource instance managed by this Terraform configuration is not present in the configured backend
+```
+
+**解決方法:**
+```bash
+# 1. 状態ファイル確認
+terraform state list
+
+# 2. 実際のリソース確認
+# Proxmox WebUI で確認
+
+# 3. 状態更新
+terraform refresh
+
+# 4. 不整合リソースの削除 (注意: 破壊的)
+terraform state rm proxmox_vm_qemu.vm
+
+# 5. インポート (リソースが存在する場合)
+terraform import proxmox_vm_qemu.vm pve201/qemu/201
+```
+
+#### 状態ファイルロック
+```
+Error: Error acquiring the state lock
+```
+
+**解決方法:**
+```bash
+# 1. 他のterraformプロセス確認
+ps aux | grep terraform
+
+# 2. 強制ロック解除 (注意深く実行)
+terraform force-unlock LOCK_ID
+
+# 3. 状態ファイルバックアップ
+cp terraform.tfstate terraform.tfstate.backup
+```
+
+## 🔍 デバッグ方法
+
+### Terraformログの詳細化
+```bash
+# 詳細ログ有効化
+export TF_LOG=DEBUG
+export TF_LOG_PATH=./terraform.log
+
+# 実行後ログ確認
+tail -f terraform.log
+```
+
+### プロバイダーログの確認
+```bash
+# Proxmox API通信ログ
+export TF_LOG_PROVIDER=DEBUG
+
+# 実行
+terraform plan
+
+# ログから API リクエスト・レスポンス確認
+grep -A5 -B5 "HTTP" terraform.log
+```
+
+### 段階的デバッグ
+```bash
+# 1. 構文確認
+terraform validate
+
+# 2. 計画確認
+terraform plan
+
+# 3. 特定リソースのみ適用
+terraform apply -target=proxmox_vm_qemu.vm
+
+# 4. 変数値の確認
+terraform console
+> var.hostname
+> var.ip_address
+```
+
+## ⚠️ 緊急時対応
+
+### VM/LXC が応答しない場合
+```bash
+# 1. Proxmox WebUI での確認
+# VM → 概要 → 状態確認
+
+# 2. 強制停止・再起動
+# WebUI または CLI で操作
+
+# 3. Terraform状態の修正
+terraform refresh
+terraform plan  # 差分確認
+```
+
+### リソース削除が失敗する場合
+```bash
+# 1. Proxmox WebUI で手動削除
+
+# 2. Terraform状態から削除
+terraform state rm proxmox_vm_qemu.vm
+
+# 3. 状態確認
+terraform state list
+```
+
+### 設定ファイル破損時
+```bash
+# 1. バックアップから復元
+cp terraform.tfvars.backup terraform.tfvars
+
+# 2. テンプレートから再作成
+cd ../../
+task create-vm -- recovery-env
+cd envs/recovery-env
+# 設定を移行
+```
+
+## 📊 予防的対策
+
+### 事前チェックリスト作成
+```bash
+#!/bin/bash
+# pre-deploy-check.sh
+
+echo "🔍 デプロイ前チェック開始"
+
+# terraform.tfvars 存在確認
+if [ ! -f terraform.tfvars ]; then
+    echo "❌ terraform.tfvars が見つかりません"
+    exit 1
+fi
+
+# IP重複確認 (簡易版)
+IP=$(grep "ip_address" terraform.tfvars | cut -d'"' -f2)
+if ping -c1 $IP >/dev/null 2>&1; then
+    echo "⚠️  IPアドレス $IP は既に使用されている可能性があります"
+fi
+
+# VMID重複確認
+VMID=$(grep "vmid" terraform.tfvars | grep -o '[0-9]\+')
+echo "VMID: $VMID を使用予定"
+
+# プロバイダー設定確認
+if [ ! -f "../../modules/proxmox_vm/provider.tf" ]; then
+    echo "❌ プロバイダー設定が見つかりません"
+    echo "実行: task create-provider"
+    exit 1
+fi
+
+echo "✅ 事前チェック完了"
+```
+
+### 定期バックアップ
+```bash
+#!/bin/bash
+# backup-terraform-state.sh
+
+DATE=$(date +%Y%m%d_%H%M%S)
+ENV_NAME=$(basename $PWD)
+
+# 状態ファイルバックアップ
+if [ -f terraform.tfstate ]; then
+    cp terraform.tfstate backups/terraform.tfstate.$DATE
+    echo "状態ファイルをバックアップ: backups/terraform.tfstate.$DATE"
+fi
+
+# 設定ファイルバックアップ
+cp terraform.tfvars backups/terraform.tfvars.$DATE
+echo "設定ファイルをバックアップ: backups/terraform.tfvars.$DATE"
+```
+
+### ヘルスチェック
+```bash
+#!/bin/bash
+# health-check.sh
+
+echo "🏥 環境ヘルスチェック"
+
+# Terraform状態確認
+terraform state list > /dev/null
+if [ $? -eq 0 ]; then
+    echo "✅ Terraform状態: 正常"
+else
+    echo "❌ Terraform状態: 異常"
+fi
+
+# リソース接続確認
+IP=$(terraform output -raw ip_address 2>/dev/null)
+if [ -n "$IP" ]; then
+    if ping -c1 $IP >/dev/null 2>&1; then
+        echo "✅ ネットワーク接続: 正常 ($IP)"
+    else
+        echo "❌ ネットワーク接続: 異常 ($IP)"
+    fi
+fi
+
+# SSH接続確認
+if [ -n "$IP" ]; then
+    USER=$(terraform output -raw username 2>/dev/null || echo "aoba")
+    if ssh -o ConnectTimeout=5 -o BatchMode=yes $USER@$IP exit 2>/dev/null; then
+        echo "✅ SSH接続: 正常"
+    else
+        echo "❌ SSH接続: 異常"
+    fi
+fi
+```
+
+## 📞 サポート・エスカレーション
+
+### 情報収集
+問題報告時に以下の情報を収集:
+
+```bash
+# 1. 環境情報
+terraform version
+cat terraform.tfvars
+terraform state list
+
+# 2. エラーログ
+cat terraform.log | tail -100
+
+# 3. Proxmox側の状態
+# WebUI スクリーンショット
+
+# 4. ネットワーク状態
+ip a
+ping gateway
+```
+
+### よくある質問 (FAQ)
+
+**Q: VMが作成されたが SSH 接続できない**
+A: cloud-init の完了を待つ。通常 2-3 分で SSH サービス開始。
+
+**Q: IPアドレスを変更したい**
+A: terraform.tfvars を編集後、`terraform apply` で更新可能。
+
+**Q: 同じ設定で複数VM作成したい** 
+A: count または for_each を使用した設計に変更が必要。
+
+**Q: プロダクション環境への適用方法**
+A: 別途 prod 環境を作成し、慎重にテスト後適用。
+
+---
+
+参照ファイル:
+- [modules/proxmox_vm/main.tf](mdc:modules/proxmox_vm/main.tf)
+- [modules/proxmox_lxc/main.tf](mdc:modules/proxmox_lxc/main.tf)
+- [Taskfile.yml](mdc:Taskfile.yml)

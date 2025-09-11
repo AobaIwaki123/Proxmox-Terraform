@@ -14,7 +14,7 @@ alwaysApply: true
 ## 📋 技術スタック
 
 - **Terraform**: v1.9.8
-- **Proxmox Provider**: 3.0.1-rc6 (LXCは rc4を使用)
+- **Proxmox Provider**: 3.0.2-rc01 (VMとLXC共通)
 - **Proxmox VE**: 8.3.0
 - **Ubuntu Template**: 24.10
 - **Task Runner**: Taskfile v3, Makefile
@@ -140,9 +140,9 @@ resource "proxmox_vm_qemu" "vm" {
 ## ⚠️ 注意事項
 
 ### Proxmox Provider版数
-- **VM**: rc6を使用
-- **LXC**: rc4を使用（rc5, rc6の既知の問題のため）
-- バージョンの混在に注意
+- **VM・LXC共通**: 3.0.2-rc01を使用
+- 安定した動作が確認されているバージョンを統一使用
+- アップデート時は慎重にテストを実施
 
 ### IPアドレス管理
 - 形式: `192.168.11.xxx/24`
@@ -174,7 +174,8 @@ terraform plan     # 実行計画確認
 ### バージョンアップデート
 - Terraform本体のバージョン管理はtfenvを使用
 - プロバイダーバージョンは慎重にアップデート
-- 3.0.1正式版リリース後の移行計画を立案
+- 現在使用中: Proxmox Provider 3.0.2-rc01
+- 正式版リリース後の移行計画を継続検討
 
 ### 状態管理
 - リモートステート使用を検討
