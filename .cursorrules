@@ -1,0 +1,181 @@
+# Proxmox-Terraform Project Cursor Rules
+
+## プロジェクト概要
+このプロジェクトは、Proxmox VE環境でVMとLXCコンテナを管理するためのTerraformフレームワークです。
+モジュール化されたアーキテクチャとテンプレートシステムを使用して、インフラストラクチャをコードで管理します。
+
+## テクニカルスタック
+- **Terraform**: v1.9.8
+- **Proxmox Provider**: 3.0.1-rc6 (LXCコンテナはrc4を使用)
+- **Proxmox VE**: 8.3.0
+- **Ubuntu Template**: 24.10
+- **Task Runner**: Taskfile v3, Makefile
+- **Cloud-init**: VM初期化に使用
+
+## ディレクトリ構造とファイル規則
+
+### モジュール構造
+```
+modules/
+├── proxmox_vm/     # VM作成用モジュール
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── provider.tf.example
+└── proxmox_lxc/    # LXCコンテナ作成用モジュール
+    ├── main.tf
+    ├── variables.tf
+    └── provider.tf.example
+```
+
+### テンプレート構造
+```
+template/
+├── vm/             # VM環境テンプレート
+│   ├── main.tf
+│   ├── varialbles.tf
+│   ├── terraform.tfvars
+│   ├── Taskfile.yml
+│   └── README.md
+└── container/      # コンテナ環境テンプレート
+    └── (同様の構造)
+```
+
+### 環境管理
+```
+envs/
+└── {ENV_NAME}/     # 各環境ディレクトリ
+    ├── main.tf
+    ├── varialbles.tf
+    ├── terraform.tfvars
+    └── Taskfile.yml
+```
+
+## コーディング規約
+
+### Terraformファイル
+1. **変数定義**: 必ずdescriptionとtypeを指定
+   ```hcl
+   variable "hostname" {
+     description = "The hostname for the VM"
+     type        = string
+   }
+   ```
+
+2. **リソース命名**: 分かりやすいリソース名を使用
+   - VM: `proxmox_vm_qemu.vm`
+   - LXC: `proxmox_lxc.basic`
+
+3. **モジュール参照**: 相対パスを使用
+   ```hcl
+   module "proxmox_vm" {
+     source = "../../modules/proxmox_vm"
+   }
+   ```
+
+### ファイル命名規約
+- **変数ファイル**: `varialbles.tf` (既存の表記に従う)
+- **設定ファイル**: `terraform.tfvars`
+- **プロバイダー例**: `provider.tf.example`
+
+### セキュリティ
+1. **プロバイダー設定**: 
+   - `provider.tf.example`をコピーして`provider.tf`を作成
+   - `provider.tf`は.gitignoreに含める
+   - APIトークン情報を直接コミットしない
+
+2. **変数管理**:
+   - 機密情報は`terraform.tfvars`で管理
+   - 例示用の値は安全なダミー値を使用
+
+## 開発ワークフロー
+
+### 新しい環境の作成
+```bash
+# VM環境
+task create-vm -- {VM_NAME}
+
+# コンテナ環境  
+task create-ct -- {CT_NAME}
+```
+
+### プロバイダー設定
+```bash
+task create-provider
+# その後、modules/*/provider.tfを編集
+```
+
+### 環境の適用
+```bash
+cd envs/{ENV_NAME}
+task init-tf
+task apply-tf
+```
+
+## 必須変数
+すべてのVM/コンテナ環境で以下の変数を定義：
+
+### VM固有
+- `hostname`, `username`, `public_key`
+- `cores`, `memory`, `disk_size`
+- `ip_address`, `gateway`, `nameserver`, `searchdomain`
+- `target_node`, `template`, `storage`, `bridge`, `vmid`
+
+### LXC固有（usernameを除く）
+- `hostname`, `public_key`
+- その他はVMと同様
+
+## タスクファイル規約
+
+### ルートタスクファイル
+- `create-vm`, `create-ct`: 環境テンプレート作成
+- `create-provider`: プロバイダー設定ファイル作成
+- `delete-all-envs`: 全環境削除
+
+### 環境タスクファイル  
+- `init-tf`: Terraform初期化
+- `apply-tf`: リソース作成
+- `destroy-tf`: リソース削除
+- `clean-tf`: 状態ファイル削除
+
+## 推奨事項
+
+### 新しいファイルを作成する際
+1. 既存のテンプレートをコピーして使用
+2. 変数定義は既存パターンに従う
+3. 日本語コメントを適切に使用
+4. プロバイダーバージョンを統一する
+
+### モジュール開発
+1. 変数には必ずvalidationを追加検討
+2. outputsは明確で再利用可能にする
+3. ドキュメントはREADME.mdに記載
+
+### セキュリティベストプラクティス  
+1. APIトークンをハードコードしない
+2. IPアドレスは環境に応じて設定
+3. VMIDは重複しないよう管理
+
+### デバッグ
+1. `terraform plan`で事前確認
+2. `terraform apply`前に設定値を確認  
+3. エラー時は状態ファイルを確認
+
+## プロジェクト固有の注意事項
+
+### Proxmox Provider
+- RC版を使用しているため、バージョン固定必須
+- LXCコンテナはrc4、VMはrc6を使用
+- 公式3.0.1正式版リリース後のマイグレーション計画要検討
+
+### ネットワーク設定
+- デフォルトブリッジ: `vmbr0`
+- IPアドレス形式: `192.168.11.xxx/24`
+- VMIDとIPアドレス末尾の統一推奨
+
+### テンプレート管理
+- Ubuntu 24.10 cloud-imgベース
+- テンプレートID: 9200（デフォルト）
+- cloud-init対応必須
+
+これらのルールに従って開発することで、一貫性のあるコードベースを維持し、チーム開発を効率化できます。
