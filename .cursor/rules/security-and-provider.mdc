@@ -1,0 +1,258 @@
+---
+description: "Proxmox環境でのセキュリティ設定とプロバイダー管理"
+globs: ["**/provider.tf*", "**/*.tfvars", "**/terraform.tfstate*"]
+---
+
+# セキュリティ・プロバイダー設定ガイド
+
+## 🔐 セキュリティ基本原則
+
+### 機密情報管理の原則
+1. **機密情報はコードに埋め込まない**
+2. **環境変数または `terraform.tfvars` で管理**
+3. **サンプル値は安全なダミー値を使用**
+4. **プロダクション設定は別途管理**
+
+### 管理すべき機密情報
+- Proxmox API トークン
+- SSH 秘密鍵
+- プロダクション IP アドレス
+- 実際のホスト名・ユーザー名
+
+## 🔧 プロバイダー設定
+
+### 標準的なプロバイダー設定
+```terraform
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "3.0.2-rc01"  # 固定バージョン使用
+    }
+  }
+}
+
+provider "proxmox" {
+  pm_api_url          = var.pm_api_url
+  pm_api_token_id     = var.pm_api_token_id
+  pm_api_token_secret = var.pm_api_token_secret
+  pm_tls_insecure     = true  # 自己署名証明書の場合
+}
+```
+
+### プロバイダー設定の作成手順
+```bash
+# 1. サンプルファイルから設定ファイルを作成
+task create-provider
+
+# 2. 各モジュールの provider.tf を編集
+# modules/proxmox_vm/provider.tf
+# modules/proxmox_lxc/provider.tf
+
+# 3. API情報を実際の値に変更
+```
+
+### 推奨されるプロバイダー設定 (変数使用版)
+```terraform
+# variables.tf に追加
+variable "pm_api_url" {
+  description = "Proxmox VE API URL"
+  type        = string
+  sensitive   = true
+}
+
+variable "pm_api_token_id" {
+  description = "Proxmox VE API Token ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "pm_api_token_secret" {
+  description = "Proxmox VE API Token Secret"
+  type        = string
+  sensitive   = true
+}
+
+# terraform.tfvars で値を設定
+pm_api_url          = "https://your-proxmox-server:8006/api2/json"
+pm_api_token_id     = "root@pam!my-token-id"
+pm_api_token_secret = "your-actual-token-secret"
+```
+
+## 🔑 API トークン管理
+
+### API トークンの作成方法
+1. Proxmox WebUI にログイン
+2. 「データセンター」→「権限」→「API トークン」
+3. 「追加」をクリック
+4. 以下を設定:
+   - **トークン ID**: `root@pam!terraform` (例)
+   - **権限の分離**: チェックを外す (フル権限)
+   - **有効期限**: 適切に設定
+
+### 権限設定の推奨
+```
+ユーザー: root@pam
+権限: Administrator
+パス: /
+```
+
+### API トークンの保護
+```bash
+# 環境変数での管理例
+export TF_VAR_pm_api_url="https://your-proxmox:8006/api2/json"
+export TF_VAR_pm_api_token_id="root@pam!terraform"
+export TF_VAR_pm_api_token_secret="your-secret-here"
+
+# terraform.tfvars ファイルの権限設定
+chmod 600 terraform.tfvars
+```
+
+## 🛡️ SSH キー管理
+
+### SSH 公開鍵の設定
+```terraform
+# terraform.tfvars での設定例
+public_key = [
+  "ssh-ed25519 AAAAC3Nza... user@hostname",
+  "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNo... another@host"
+]
+```
+
+### SSH キーの生成 (参考)
+```bash
+# Ed25519 キーの生成 (推奨)
+ssh-keygen -t ed25519 -C "your-email@example.com"
+
+# ECDSA キーの生成
+ssh-keygen -t ecdsa -b 256 -C "your-email@example.com"
+
+# 公開鍵の表示
+cat ~/.ssh/id_ed25519.pub
+```
+
+### SSH 接続の確認
+```bash
+# VM 作成後の接続テスト
+ssh username@ip-address
+
+# 鍵認証の確認
+ssh -i ~/.ssh/private_key username@ip-address
+```
+
+## 📁 ファイル管理・除外設定
+
+### .gitignore 設定
+```gitignore
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+
+# Provider configuration (機密情報含む)
+provider.tf
+!provider.tf.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+```
+
+### terraform.tfvars の管理
+```bash
+# サンプルファイルの作成
+cp terraform.tfvars terraform.tfvars.example
+
+# 実際の設定ファイルは Git 管理外
+echo "terraform.tfvars" >> .gitignore
+```
+
+## 🌐 ネットワークセキュリティ
+
+### IP アドレス管理
+```terraform
+# 開発環境用の安全な設定例
+ip_address = "192.168.11.999"  # 存在しないアドレス
+gateway    = "192.168.11.1"
+nameserver = "192.168.11.1"
+```
+
+### プロダクション環境での注意
+- 実際の IP アドレス範囲を確認
+- DHCP 範囲との重複回避
+- DNS 設定の確認
+- ファイアウォール設定の考慮
+
+## 🔍 セキュリティチェックリスト
+
+### 作成前チェック
+- [ ] `provider.tf` に実際の認証情報を含めていない
+- [ ] `terraform.tfvars` が `.gitignore` に含まれている
+- [ ] SSH 公開鍵が正しく設定されている
+- [ ] IP アドレスが重複していない
+- [ ] プロダクション値がサンプルファイルに含まれていない
+
+### デプロイ前チェック
+- [ ] `terraform plan` で意図しない変更がない
+- [ ] API トークンが有効である
+- [ ] SSH 接続が可能である
+- [ ] ネットワーク設定が正しい
+
+### 運用時チェック
+- [ ] API トークンの有効期限確認
+- [ ] 不要なリソースの削除
+- [ ] ログファイルの定期削除
+- [ ] バックアップの実行
+
+## 🚨 トラブルシューティング
+
+### API 認証エラー
+```
+Error: error creating client: error creating PVE client: authentication failed
+```
+**解決方法:**
+1. API URL の確認 (https://IP:8006/api2/json)
+2. トークン ID・Secret の確認
+3. トークンの有効期限確認
+4. 権限設定の確認
+
+### SSH 接続エラー
+```
+Permission denied (publickey)
+```
+**解決方法:**
+1. 公開鍵の形式確認
+2. cloud-init ログの確認
+3. VM の SSH サービス状態確認
+
+### TLS 証明書エラー
+```
+Error: error creating client: x509: certificate signed by unknown authority
+```
+**解決方法:**
+```terraform
+provider "proxmox" {
+  pm_tls_insecure = true  # 自己署名証明書を許可
+}
+```
+
+---
+
+## 📚 関連ドキュメント
+
+- [Proxmox API Documentation](https://pve.proxmox.com/pve-docs/api-viewer/)
+- [Terraform Proxmox Provider](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs)
+- [Cloud-init Documentation](https://cloud-init.readthedocs.io/)
+
+---
+
+参照ファイル:
+- [provider.tf.example](mdc:modules/proxmox_vm/provider.tf.example)
+- [terraform.tfvars](mdc:template/vm/terraform.tfvars)
+- [.gitignore](mdc:.gitignore)
