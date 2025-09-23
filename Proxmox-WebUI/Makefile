@@ -1,10 +1,10 @@
 build:
 	docker compose build
 
-exec-frontend:
+sh-frontend:
 	docker compose run --rm -it frontend bash
 
-exec-backend:
+sh-backend:
 	docker compose run --rm -it backend sh
 
 up-frontend:
