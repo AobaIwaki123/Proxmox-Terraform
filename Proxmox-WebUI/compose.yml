@@ -17,10 +17,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: dev
-    container_name: proxmox-webui-frontend
-    working_dir: /app
     volumes:
-      - ./frontend:/app
+      - ./frontend/my-app:/app
     ports:
       - "3000:3000"
+    command: ["/root/.bun/bin/bun", "dev"]
     restart: unless-stopped
