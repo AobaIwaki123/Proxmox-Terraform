@@ -8,7 +8,7 @@
 # Version情報
 
 - Ubuntu (OS Template): 24.10
-- Terraform: v1.9.8
+- Terraform: v1.13.3
 - tfenv: 3.0.0
 - Proxmox: 8.3.0
 - proxmox provider: 3.0.1-rc6
