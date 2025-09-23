@@ -1,0 +1,5 @@
+---
+globs: ["**/*.go", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json", "**/*.yml", "**/*.yaml", "**/*.md"]
+alwaysApply: false
+---
+コードを編集するときは、serena mcp serverを活用して効率的に編集してください。

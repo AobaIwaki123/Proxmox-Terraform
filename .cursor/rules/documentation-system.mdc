@@ -1,0 +1,446 @@
+---
+description: "ドキュメント管理システムの規約とMarkdown記述ガイドライン"
+globs: ["**/*.md", "docs/**/*", "**/README.md"]
+---
+
+# ドキュメント管理システム規約
+
+## 📚 システム概要
+
+プロジェクト全体のドキュメントをMarkdown形式で一元管理するシステムです。
+技術的な手順書、設定方法、ベストプラクティス、API仕様などを体系的に管理します。
+
+## 📁 ドキュメント構造
+
+```
+docs/
+├── create_vm_template.md    # VMテンプレート作成手順
+├── api/                     # API仕様書
+│   ├── terraform-api.md     # Terraform API仕様
+│   └── proxmox-api.md       # Proxmox API仕様
+├── guides/                  # 操作ガイド
+│   ├── vm-management.md     # VM管理ガイド
+│   ├── lxc-management.md    # LXC管理ガイド
+│   └── troubleshooting.md   # トラブルシューティング
+├── architecture/            # アーキテクチャ文書
+│   ├── system-overview.md   # システム概要
+│   ├── terraform-modules.md # Terraformモジュール設計
+│   └── webui-architecture.md # WebUIアーキテクチャ
+└── deployment/              # デプロイメント文書
+    ├── local-development.md # ローカル開発環境
+    ├── production-deploy.md # 本番環境デプロイ
+    └── maintenance.md       # メンテナンス手順
+```
+
+## ✍️ Markdown記述規約
+
+### 基本フォーマット
+
+#### ヘッダー構造
+```markdown
+# ドキュメントタイトル
+
+## 概要
+## 前提条件
+## 手順
+### ステップ1: タイトル
+### ステップ2: タイトル
+## トラブルシューティング
+## 参考リンク
+```
+
+#### コードブロック
+```markdown
+# シェルコマンド
+```bash
+cd /path/to/project
+terraform init
+terraform plan
+```
+
+# 設定ファイル例
+```yaml
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+```
+
+# 説明付きコード
+```terraform
+# VM作成の基本設定
+resource "proxmox_vm_qemu" "vm" {
+  name       = var.hostname
+  target_node = var.target_node
+  # Cloud-initの設定を書き込むためのディスク
+  disks {
+    ide {
+      ide2 {
+        cloudinit {
+          storage = var.storage
+        }
+      }
+    }
+  }
+}
+```
+```
+
+### 表の記述規約
+
+#### 設定値一覧表
+```markdown
+| 変数名 | 型 | 必須 | デフォルト値 | 説明 |
+|--------|----|----|------------|------|
+| hostname | string | ✓ | - | ホスト名 |
+| ip_address | string | ✓ | - | IPアドレス (192.168.11.xxx) |
+| vmid | number | ✓ | - | VM ID (100-999) |
+| cores | number | - | 1 | CPUコア数 |
+| memory | number | - | 1024 | メモリ容量 (MB) |
+```
+
+#### コマンド一覧表
+```markdown
+| コマンド | 説明 | 使用例 |
+|----------|------|--------|
+| `task create-vm` | VM環境作成 | `task create-vm -- my-vm` |
+| `task create-ct` | LXC環境作成 | `task create-ct -- my-ct` |
+| `task init-tf` | Terraform初期化 | `task init-tf` |
+| `task apply-tf` | Terraform適用 | `task apply-tf` |
+```
+
+### 警告・注意事項の記述
+
+#### 重要な注意事項
+```markdown
+> ⚠️ **重要**: この操作は既存のリソースに影響を与える可能性があります。
+> 実行前に必ずバックアップを取得してください。
+
+> 💡 **ヒント**: より詳細な情報は[関連ドキュメント](./related-doc.md)を参照してください。
+
+> 🚨 **警告**: この設定を誤るとシステムが起動しなくなる可能性があります。
+```
+
+#### 手順の注意点
+```markdown
+### ステップ1: 環境準備
+
+1. **前提条件の確認**
+   - [ ] Proxmox VE 8.3.0以上がインストール済み
+   - [ ] Terraform v1.9.8以上がインストール済み
+   - [ ] 必要な権限を持つAPIトークンが準備済み
+
+2. **設定ファイルの準備**
+   ```bash
+   # プロバイダー設定ファイルの作成
+   cp provider.tf.example provider.tf
+   # 機密情報を設定
+   vim provider.tf
+   ```
+
+3. **⚠️ 注意**: `provider.tf`には機密情報が含まれるため、`.gitignore`に追加してください。
+```
+
+## 📋 ドキュメント種別別規約
+
+### 手順書 (How-to Guides)
+
+#### 構造
+```markdown
+# [機能名] 手順書
+
+## 概要
+この手順書では、[機能名]の設定・使用方法について説明します。
+
+## 前提条件
+- [前提条件1]
+- [前提条件2]
+
+## 手順
+
+### ステップ1: [タイトル]
+[詳細な手順]
+
+### ステップ2: [タイトル]
+[詳細な手順]
+
+## 確認方法
+[動作確認の方法]
+
+## トラブルシューティング
+[よくある問題と解決方法]
+
+## 参考リンク
+- [関連ドキュメント1](./related1.md)
+- [外部リンク1](https://example.com)
+```
+
+#### 例: VMテンプレート作成手順
+```markdown
+# VMテンプレート作成手順
+
+## 概要
+この手順書では、Proxmox VEでVMテンプレートを作成する方法を説明します。
+
+## 前提条件
+- Proxmox VE 8.3.0以上がインストール済み
+- 管理者権限を持つユーザーアカウント
+- 十分なストレージ容量
+
+## 手順
+
+### ステップ1: Ubuntu Cloud Imageのダウンロード
+```bash
+wget https://cloud-images.ubuntu.com/oracular/current/oracular-server-cloudimg-amd64.img \
+  -O ubuntu-24.10-server-cloudimg-amd64.img
+```
+
+### ステップ2: ベースVMの作成
+```bash
+# Base VM configuration
+qm create 9200 --net0 virtio,bridge=vmbr0
+qm importdisk 9200 ubuntu-24.10-server-cloudimg-amd64.img local-lvm
+qm set 9200 --name ubuntu-24.10a
+qm set 9200 --scsihw virtio-scsi-pci --virtio0 local-lvm:vm-9200-disk-0
+qm set 9200 --boot order=virtio0
+qm set 9200 --ide2 local-lvm:cloudinit
+qm set 9200 --nameserver 127.0.0.53 --searchdomain localdomain
+```
+
+### ステップ3: テンプレート変換
+```bash
+qm template 9200
+```
+
+## 確認方法
+Proxmox WebUIで「データセンター」→「ストレージ」→「local-lvm」を確認し、
+テンプレートが作成されていることを確認してください。
+
+## トラブルシューティング
+- **ディスク容量不足**: ストレージの空き容量を確認
+- **ネットワークエラー**: ブリッジ設定を確認
+- **権限エラー**: ユーザーの権限を確認
+
+## 参考リンク
+- [Proxmox VE公式ドキュメント](https://pve.proxmox.com/wiki/Main_Page)
+- [Ubuntu Cloud Images](https://cloud-images.ubuntu.com/)
+```
+
+### API仕様書
+
+#### 構造
+```markdown
+# [API名] 仕様書
+
+## 概要
+[APIの概要と目的]
+
+## ベースURL
+```
+https://api.example.com/v1
+```
+
+## 認証
+[認証方法の説明]
+
+## エンドポイント
+
+### [エンドポイント名]
+
+#### リクエスト
+```http
+POST /api/vms
+Content-Type: application/json
+
+{
+  "hostname": "my-vm",
+  "ip_address": "192.168.11.100",
+  "vmid": 100
+}
+```
+
+#### レスポンス
+```json
+{
+  "success": true,
+  "data": {
+    "id": "100",
+    "name": "my-vm",
+    "status": "creating"
+  }
+}
+```
+
+#### エラー
+| ステータスコード | エラーコード | 説明 |
+|------------------|--------------|------|
+| 400 | INVALID_REQUEST | リクエストが不正 |
+| 409 | VMID_CONFLICT | VMIDが既に使用中 |
+| 500 | INTERNAL_ERROR | 内部サーバーエラー |
+```
+
+### アーキテクチャ文書
+
+#### 構造
+```markdown
+# [システム名] アーキテクチャ
+
+## 概要
+[システムの全体像]
+
+## アーキテクチャ図
+```mermaid
+graph TB
+    A[Frontend] --> B[Backend API]
+    B --> C[Proxmox API]
+    B --> D[Terraform]
+    D --> E[Proxmox VE]
+```
+
+## コンポーネント
+
+### [コンポーネント名]
+- **責任**: [コンポーネントの責任]
+- **技術**: [使用技術]
+- **依存関係**: [依存するコンポーネント]
+
+## データフロー
+[データの流れの説明]
+
+## 非機能要件
+- **可用性**: 99.9%
+- **応答時間**: 平均2秒以内
+- **スループット**: 100リクエスト/分
+```
+
+## 🔗 リンク管理規約
+
+### 内部リンク
+```markdown
+# 相対パスを使用
+[VM管理ガイド](../guides/vm-management.md)
+[設定ファイル例](./config-example.md)
+
+# アンカーリンク
+[トラブルシューティング](#トラブルシューティング)
+```
+
+### 外部リンク
+```markdown
+# 公式ドキュメント
+[Proxmox VE公式ドキュメント](https://pve.proxmox.com/wiki/Main_Page)
+
+# 参考記事
+[Qiita記事](https://qiita.com/example/items/1234567890abcdef)
+```
+
+### 画像・ファイル参照
+```markdown
+# 画像の参照
+![アーキテクチャ図](./images/architecture.png)
+
+# ファイルの参照
+[設定ファイル例](./files/config-example.tf)
+```
+
+## 📝 ドキュメント更新規約
+
+### 更新タイミング
+- 新機能追加時
+- 既存機能の変更時
+- バグ修正時
+- 設定変更時
+
+### 更新手順
+1. 該当ドキュメントの特定
+2. 変更内容の確認
+3. ドキュメントの更新
+4. 関連ドキュメントの確認・更新
+5. レビュー・承認
+6. 公開
+
+### バージョン管理
+```markdown
+---
+title: "VM管理ガイド"
+version: "1.2.0"
+last_updated: "2024-01-15"
+author: "開発チーム"
+---
+
+# VM管理ガイド
+
+## 変更履歴
+- v1.2.0 (2024-01-15): 新機能追加
+- v1.1.0 (2024-01-01): バグ修正
+- v1.0.0 (2023-12-01): 初版作成
+```
+
+## 🧪 ドキュメント品質管理
+
+### チェックリスト
+- [ ] タイトルが内容を適切に表現している
+- [ ] 目次が適切に構成されている
+- [ ] コードブロックが正しく記述されている
+- [ ] リンクが正しく動作する
+- [ ] 画像が適切に表示される
+- [ ] 表が正しく表示される
+- [ ] 警告・注意事項が適切に配置されている
+
+### 自動チェック
+```bash
+# Markdownリンクチェック
+markdown-link-check docs/**/*.md
+
+# スペルチェック
+aspell check docs/**/*.md
+
+# フォーマットチェック
+markdownlint docs/**/*.md
+```
+
+## 📚 ドキュメントテンプレート
+
+### README.md テンプレート
+```markdown
+# [プロジェクト/モジュール名]
+
+## 概要
+[簡潔な説明]
+
+## 前提条件
+- [前提条件1]
+- [前提条件2]
+
+## インストール
+```bash
+# インストール手順
+```
+
+## 使用方法
+```bash
+# 使用例
+```
+
+## 設定
+[設定方法の説明]
+
+## API仕様
+[API仕様の概要]
+
+## トラブルシューティング
+[よくある問題と解決方法]
+
+## ライセンス
+[ライセンス情報]
+
+## 貢献
+[貢献方法]
+```
+
+---
+
+参照ファイル:
+- [create_vm_template.md](mdc:docs/create_vm_template.md)
+- [README.md](mdc:README.md)
