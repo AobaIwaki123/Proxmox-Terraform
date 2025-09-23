@@ -7,23 +7,21 @@
 
 # Version情報
 
-- Ubuntu (OS Template): 24.10
 - Terraform: v1.13.3
-- tfenv: 3.0.0
-- Proxmox: 8.3.0
+- Proxmox: 8.3.4
 - proxmox provider: 3.0.1-rc6
   - Containerに関しては、`rc5`, `rc6`において[こちら](https://github.com/Telmate/terraform-provider-proxmox/issues/1172)のISSUEが存在するため、`rc4`を使用している
  
 # Gettig Started
 
-## Terraformのインストール
+## 1. Terraformをインストール
 
 ```sh
-$ sudo make init # 必要なapt packageのインストール
-$ make install-tfenv # tfenvのインストール
+$ terraform version
+Terraform v1.13.3
 ```
 
-## Proxmox API Tokenの取得
+## 2. Proxmox API Tokenの取得
 
 まず、以下のようにロール、ユーザーを作成し、作成したロールをユーザーに割り当てる。
 以下のコマンドはPVEクラスタのノード上であればどこで実行しても良い。
