@@ -305,43 +305,43 @@ cp .env.example .env.local
 # .env.local を編集
 
 # 開発環境起動
-docker-compose up -d
+docker compose up -d
 
 # ログ確認
-docker-compose logs -f
+docker compose logs -f
 
 # 特定サービスのログ確認
-docker-compose logs -f backend
-docker-compose logs -f frontend
+docker compose logs -f backend
+docker compose logs -f frontend
 ```
 
 ### 開発中の操作
 
 ```bash
 # サービスの再起動
-docker-compose restart backend
+docker compose restart backend
 
 # サービスの停止
-docker-compose stop
+docker compose stop
 
 # サービスの削除（ボリューム含む）
-docker-compose down -v
+docker compose down -v
 
 # イメージの再ビルド
-docker-compose build --no-cache
+docker compose build --no-cache
 
 # 特定サービスの再ビルド
-docker-compose build backend
+docker compose build backend
 ```
 
 ### 本番環境デプロイ
 
 ```bash
 # 本番環境用の起動
-docker-compose -f compose.prod.yml up -d
+docker compose -f compose.prod.yml up -d
 
 # 本番環境用の停止
-docker-compose -f compose.prod.yml down
+docker compose -f compose.prod.yml down
 ```
 
 ## 🧪 テスト環境
@@ -450,13 +450,13 @@ services:
 
 ```bash
 # 全サービスのログ確認
-docker-compose logs -f
+docker compose logs -f
 
 # 特定サービスのログ確認
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # ログのフィルタリング
-docker-compose logs -f | grep ERROR
+docker compose logs -f | grep ERROR
 
 # ログファイルの確認
 tail -f logs/backend/app.log
@@ -520,10 +520,10 @@ docker system prune -f
 
 ```bash
 # 全コンテナとボリュームの削除
-docker-compose down -v --remove-orphans
+docker compose down -v --remove-orphans
 
 # イメージの削除
-docker-compose down --rmi all
+docker compose down --rmi all
 
 # 完全リセット
 docker system prune -a -f --volumes

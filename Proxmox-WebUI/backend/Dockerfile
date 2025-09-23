@@ -1,5 +1,8 @@
 FROM golang:1.25-alpine AS dev
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy go mod files

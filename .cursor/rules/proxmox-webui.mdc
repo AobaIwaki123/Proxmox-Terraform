@@ -225,13 +225,13 @@ export class APIService {
 ```bash
 # 開発環境起動
 cd Proxmox-WebUI
-docker-compose up -d
+docker compose up -d
 
 # ログ確認
-docker-compose logs -f
+docker compose logs -f
 
 # 停止
-docker-compose down
+docker compose down
 ```
 
 ### 環境変数設定
