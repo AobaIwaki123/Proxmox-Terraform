@@ -54,7 +54,7 @@ services:
         apk add --no-cache curl jq &&
         chmod +x /test/test_api.sh &&
         echo 'APIテストを実行中...' &&
-        /test/test_api.sh docker
+        sh test_api.sh docker
       "
     profiles:
       - test

@@ -28,13 +28,6 @@ else
     exit 1
 fi
 
-# .envファイルの存在チェック
-if [ ! -f ".env" ]; then
-    echo "⚠️  Warning: .envファイルが見つかりません"
-    echo "   example.envをコピーして.envを作成し、Proxmox設定を記入してください"
-    echo ""
-fi
-
 # VMリスト取得
 echo "2. VMリスト取得:"
 if curl -s --connect-timeout 10 "${API_BASE}/api/vms" > /tmp/vms.json 2>/dev/null; then
