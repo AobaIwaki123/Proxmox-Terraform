@@ -27,11 +27,23 @@
 - 各環境は`template/`からコピーして作成
 - 例: `envs/dev/`, `envs/prod/`
 
+### `/docs/` - ドキュメント
+- `create_vm_template.md`: VMテンプレート作成手順
+- プロジェクト関連ドキュメントの一元管理
+
+### `/Proxmox-WebUI/` - WebUI管理システム
+- `frontend/`: フロントエンドアプリケーション
+- `backend/`: バックエンドAPI
+- `README.md`: WebUIシステム説明
+- `Makefile`: ビルド・デプロイタスク
+- `compose.yml`: Docker Compose設定
+
+### `/imgs/` - 画像リソース
+- プロジェクト関連の画像ファイル
+- ドキュメント用の図表やスクリーンショット
+
 ### `/scripts/` - ユーティリティスクリプト
 - `create-vm-template.sh`: VMテンプレート作成スクリプト
-
-### `/docs/` - ドキュメント
-- インストール手順、テンプレート作成手順など
 
 ## ファイル命名規則
 
@@ -46,6 +58,7 @@
 ### 設定ファイル
 - `Taskfile.yml`: タスクランナー設定
 - `Makefile`: 追加ビルドタスク
+- `compose.yml`: Docker Compose設定
 - `README.md`: ドキュメント
 
 ## 重要な注意点
@@ -57,3 +70,8 @@
 - `provider.tf`は`.gitignore`に含める
 - `provider.tf.example`をベースに作成
 - APIトークンは環境変数で管理推奨
+
+### 新規追加コンポーネント
+- **Proxmox-WebUI**: Web管理インターフェース
+- **docs**: ドキュメント管理システム
+- **imgs**: 画像リソース管理

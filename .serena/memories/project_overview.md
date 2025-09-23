@@ -4,7 +4,7 @@
 Proxmox VE環境でVMとLXCコンテナを管理するためのTerraformフレームワーク。モジュール化されたアーキテクチャとテンプレートシステムを使用してインフラストラクチャをコードで管理する。
 
 ## 技術スタック
-- **Terraform**: v1.13.3
+- **Terraform**: v1.9.8
 - **tfenv**: 3.0.0 (Terraformバージョン管理)
 - **Proxmox Provider**: 3.0.2-rc01 (VMとLXC共通)
 - **Proxmox VE**: 8.3.0
@@ -22,7 +22,9 @@ Proxmox VE環境でVMとLXCコンテナを管理するためのTerraformフレ�
 │   └── container/   # コンテナ環境テンプレート
 ├── envs/            # 実際の環境設定（動的に作成）
 ├── scripts/         # ユーティリティスクリプト
-└── docs/            # ドキュメント
+├── docs/            # ドキュメント
+├── Proxmox-WebUI/   # WebUI管理システム
+└── imgs/            # 画像リソース
 ```
 
 ## 主要機能
@@ -31,3 +33,5 @@ Proxmox VE環境でVMとLXCコンテナを管理するためのTerraformフレ�
 3. **テンプレートシステム**: 再利用可能な環境テンプレート
 4. **モジュール化**: 共通機能のモジュール化
 5. **Task Runner**: 開発ワークフローの自動化
+6. **WebUI管理**: Proxmox環境のWeb管理インターフェース
+7. **ドキュメント管理**: プロジェクト関連ドキュメントの一元管理
