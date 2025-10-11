@@ -1,16 +1,16 @@
 # Create Proxmox VM/Container with Terraform
 
 自前のProxmox環境にVMやコンテナを立てるためのTerraformフレームワーク。  
-基本的なコマンドは、Taskfileに集約し、基礎となる環境ファイルは`template`ディレクトリに格納している。  
+基本的なコマンドは、Makefileに集約し、基礎となる環境ファイルは`template`ディレクトリに格納している。  
 公式のドキュメントは[こちら](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/guides/cloud-init%2520getting%2520started)。  
-絶賛`3.0.1`開発中のProxmox Providerのリポジトリは[こちら](https://github.com/Telmate/terraform-provider-proxmox)。
+Proxmox Providerのリポジトリは[こちら](https://github.com/Telmate/terraform-provider-proxmox)。
 
 # Version情報
 
-- Terraform: v1.13.3
-- Proxmox: 8.3.4
-- proxmox provider: 3.0.1-rc6
-  - Containerに関しては、`rc5`, `rc6`において[こちら](https://github.com/Telmate/terraform-provider-proxmox/issues/1172)のISSUEが存在するため、`rc4`を使用している
+- Terraform: v1.9.8
+- Proxmox VE: 8.3.0
+- Proxmox Provider: 3.0.2-rc01 (VM・LXC共通)
+- Ubuntu Template: 24.10
  
 # Gettig Started
 
@@ -18,7 +18,7 @@
 
 ```sh
 $ terraform version
-Terraform v1.13.3
+Terraform v1.9.8
 ```
 
 ## 2. Proxmox API Tokenの取得
@@ -50,17 +50,19 @@ $ pveum aclmod / -user terraform-prov@pve -role TerraformProv
 
 ![alt text](imgs/tf-token.png)
 
-## Provider情報のコピー
+## Provider情報の設定
 
 - TOKENをべたがきするようになっているため、流出に注意
 
 ```sh
-$ task create-provider
-# modules/proxmox_vm/provider.tf及び
-# modules/proxmox_lxc/provider.tfが作成される
+# モジュールレベルに設定（後方互換性のため）
+$ make setup-provider
+
+# または、特定の環境に設定（推奨）
+$ make setup-provider ENV=<環境名>
 ```
 
-`provider.tf`にProxmox API Tokenの情報を記述する
+作成された`provider.tf`にProxmox API Tokenの情報を記述する
 
 ## VMテンプレートの作成
 
@@ -69,11 +71,11 @@ $ task create-provider
 コピペ用は[こちら](./scripts/create-vm-template.sh)。
 
 ```bash
-$ wget https://cloud-images.ubuntu.com/oracular/current/oracular-server-cloudimg-amd64.img -O ubuntu-24.10-server-cloudimg-amd64.img
+$ wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img -O ubuntu-24.04-server-cloudimg-amd64.img
 # Base VM configuration
 $ qm create 9200 --net0 virtio,bridge=vmbr0
-$ qm importdisk 9200 ubuntu-24.10-server-cloudimg-amd64.img local-lvm
-$ qm set 9200 --name ubuntu-24.10a
+$ qm importdisk 9200 ubuntu-24.04-server-cloudimg-amd64.img local-lvm
+$ qm set 9200 --name ubuntu-24.04a
 $ qm set 9200 --scsihw virtio-scsi-pci --virtio0 local-lvm:vm-9200-disk-0
 $ qm set 9200 --boot order=virtio0
 $ qm set 9200 --ide2 local-lvm:cloudinit
@@ -87,11 +89,11 @@ $ qm template 9200
 - 以下のコマンドでenvを作成する
 
 ```bash
-$ task create-vm -- VM_NAME
-$ task create-ct -- CT_NAME
+$ make create-vm ENV=<VM_NAME>
+$ make create-ct ENV=<CT_NAME>
 ```
 
-`envs/dev/terraform.tfvars`を適宜編集する
+`envs/<ENV_NAME>/terraform.tfvars`を適宜編集する
 以下はざっくりした説明
 
 - hostname : VMのホスト名
@@ -111,19 +113,36 @@ $ task create-ct -- CT_NAME
 ## Terraform環境の適用方法
 
 ```sh
-$ cd envs/dev
-$ make tf-init
-$ make tf-apply
+# 環境を初期化
+$ make init ENV=<ENV_NAME>
+
+# 実行計画を確認
+$ make plan ENV=<ENV_NAME>
+
+# リソースを作成
+$ make apply ENV=<ENV_NAME>
+
+# リソースを削除（必要な場合）
+$ make destroy ENV=<ENV_NAME>
+
+# 環境一覧を表示
+$ make list
 ```
 
-[こちら](./envs/example/README.md)に詳しい手順が記載されています。
+# ヘルプとドキュメント
 
-# 参考
+```sh
+# 利用可能なコマンド一覧
+$ make help
+```
+
+## ドキュメント
+
+- [MIGRATION.md](./MIGRATION.md) - Taskfileからの移行ガイド
+- [template/vm/README.md](./template/vm/README.md) - VM環境の詳細
+- [template/container/README.md](./template/container/README.md) - Container環境の詳細
+- [docs/create_vm_template.md](./docs/create_vm_template.md) - VMテンプレートの作成方法
+
+## 参考
 
 - [Proxmox VEとTerraformでインターン生に仮想マシンを払い出す話](https://qiita.com/ymbk990/items/bd3973d2b858eb86e334)
-詳しい説明は、それぞれのTemplateのREADMEを参照
-
-# Docs
-
-- [Terraformのインストール](./docs/install_terraform.md)
-- [VMテンプレートの作成](./docs/create_vm_template.md)
