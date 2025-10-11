@@ -18,6 +18,8 @@ alwaysApply: true
 - **Proxmox VE**: 8.3.0
 - **Ubuntu Template**: 24.10
 - **Task Runner**: Taskfile v3, Makefile
+- **WebUI**: Next.js 15.5.3 + Go + Docker Compose
+- **Documentation**: Markdown + ドキュメント管理システム
 
 ## 📁 プロジェクト構造
 
@@ -31,7 +33,13 @@ alwaysApply: true
 │   └── container/   # コンテナ環境テンプレート
 ├── envs/            # 実際の環境設定（動的に作成）
 │   └── {ENV_NAME}/
-└── scripts/         # ユーティリティスクリプト
+├── Proxmox-WebUI/   # WebUI管理システム
+│   ├── frontend/    # Next.js UI
+│   ├── backend/     # Go APIサーバー
+│   └── compose.yml  # Docker Compose設定
+├── docs/            # ドキュメント管理
+├── scripts/         # ユーティリティスクリプト
+└── imgs/            # 画像リソース
 ```
 
 ## 🔧 開発ルール

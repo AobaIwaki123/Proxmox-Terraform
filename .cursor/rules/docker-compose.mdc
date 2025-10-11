@@ -1,0 +1,537 @@
+---
+description: "Docker Composeとコンテナ開発の規約とベストプラクティス"
+globs: ["**/compose.yml", "**/docker-compose.yml", "**/Dockerfile", "**/.dockerignore", "**/docker-compose.*.yml"]
+---
+
+# Docker Compose 開発規約
+
+## 🐳 システム概要
+
+このプロジェクトでは、Docker Composeを使用して開発環境を構築し、
+フロントエンド（Next.js）とバックエンド（Go）の統合開発環境を提供します。
+
+## 📁 ファイル構成
+
+```
+Proxmox-WebUI/
+├── compose.yml              # 開発環境用Docker Compose
+├── compose.prod.yml         # 本番環境用Docker Compose
+├── frontend/
+│   ├── Dockerfile           # フロントエンド用Dockerfile
+│   ├── .dockerignore        # フロントエンド用.dockerignore
+│   └── my-app/              # Next.jsアプリケーション
+├── backend/
+│   ├── Dockerfile           # バックエンド用Dockerfile
+│   ├── .dockerignore        # バックエンド用.dockerignore
+│   └── main.go              # Goアプリケーション
+└── .env.example             # 環境変数サンプル
+```
+
+## 🔧 Docker Compose 規約
+
+### 開発環境設定 (compose.yml)
+
+```yaml
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev                    # 開発用ターゲット
+    working_dir: /app
+    volumes:
+      - ./backend:/app               # ソースコードのホットリロード
+    ports:
+      - "8080:8080"                 # バックエンドポート
+    environment:
+      - PORT=8080
+      - PROXMOX_API_URL=${PROXMOX_API_URL}
+      - PROXMOX_API_TOKEN=${PROXMOX_API_TOKEN}
+    command: ["go", "run", "main.go"] # 開発用コマンド
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev                    # 開発用ターゲット
+    volumes:
+      - ./frontend/my-app:/app       # ソースコードのホットリロード
+    ports:
+      - "3000:3000"                 # フロントエンドポート
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    command: ["/root/.bun/bin/bun", "dev"] # 開発用コマンド
+    restart: unless-stopped
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+### 本番環境設定 (compose.prod.yml)
+
+```yaml
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production             # 本番用ターゲット
+    environment:
+      - PORT=8080
+      - PROXMOX_API_URL=${PROXMOX_API_URL}
+      - PROXMOX_API_TOKEN=${PROXMOX_API_TOKEN}
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production             # 本番用ターゲット
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    networks:
+      - app-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+## 🏗️ Dockerfile 規約
+
+### フロントエンド用 Dockerfile
+
+```dockerfile
+# マルチステージビルド
+FROM node:18-alpine AS base
+
+# 依存関係のインストール
+FROM base AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+# 開発環境用
+FROM base AS dev
+WORKDIR /app
+RUN apk add --no-cache curl
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
+# 本番環境用
+FROM base AS production
+WORKDIR /app
+RUN apk add --no-cache curl
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+### バックエンド用 Dockerfile
+
+```dockerfile
+# マルチステージビルド
+FROM golang:1.21-alpine AS base
+
+# 開発環境用
+FROM base AS dev
+WORKDIR /app
+RUN apk add --no-cache curl git
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+EXPOSE 8080
+CMD ["go", "run", "main.go"]
+
+# 本番環境用
+FROM base AS production
+WORKDIR /app
+RUN apk add --no-cache curl
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o main .
+EXPOSE 8080
+CMD ["./main"]
+```
+
+## 📝 .dockerignore 規約
+
+### フロントエンド用 .dockerignore
+
+```dockerignore
+# 依存関係
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ビルド出力
+.next
+out
+dist
+
+# 環境変数
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ログ
+*.log
+
+# 開発ツール
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+compose*.yml
+```
+
+### バックエンド用 .dockerignore
+
+```dockerignore
+# ビルド出力
+main
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# テスト
+*.test
+coverage.txt
+
+# 環境変数
+.env
+.env.local
+
+# ログ
+*.log
+
+# 開発ツール
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+compose*.yml
+```
+
+## 🔧 環境変数管理
+
+### .env.example テンプレート
+
+```bash
+# Proxmox設定
+PROXMOX_API_URL=https://your-proxmox-server:8006
+PROXMOX_API_TOKEN=your-api-token
+
+# フロントエンド設定
+NEXT_PUBLIC_API_URL=http://localhost:8080
+
+# データベース設定（必要に応じて）
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+
+# ログ設定
+LOG_LEVEL=info
+```
+
+### 環境変数の使用方法
+
+```yaml
+# compose.yml での環境変数参照
+services:
+  backend:
+    environment:
+      - PROXMOX_API_URL=${PROXMOX_API_URL}
+      - PROXMOX_API_TOKEN=${PROXMOX_API_TOKEN}
+    env_file:
+      - .env.local
+```
+
+## 🚀 開発ワークフロー
+
+### 開発環境起動
+
+```bash
+# 環境変数の設定
+cp .env.example .env.local
+# .env.local を編集
+
+# 開発環境起動
+docker compose up -d
+
+# ログ確認
+docker compose logs -f
+
+# 特定サービスのログ確認
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+### 開発中の操作
+
+```bash
+# サービスの再起動
+docker compose restart backend
+
+# サービスの停止
+docker compose stop
+
+# サービスの削除（ボリューム含む）
+docker compose down -v
+
+# イメージの再ビルド
+docker compose build --no-cache
+
+# 特定サービスの再ビルド
+docker compose build backend
+```
+
+### 本番環境デプロイ
+
+```bash
+# 本番環境用の起動
+docker compose -f compose.prod.yml up -d
+
+# 本番環境用の停止
+docker compose -f compose.prod.yml down
+```
+
+## 🧪 テスト環境
+
+### テスト用 Docker Compose
+
+```yaml
+# compose.test.yml
+services:
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      - GO_ENV=test
+      - PROXMOX_API_URL=http://mock-proxmox:8006
+    command: ["go", "test", "./..."]
+    depends_on:
+      - mock-proxmox
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      - NODE_ENV=test
+    command: ["npm", "test"]
+    depends_on:
+      - backend-test
+
+  mock-proxmox:
+    image: mockserver/mockserver:latest
+    ports:
+      - "8006:1080"
+    environment:
+      - MOCKSERVER_INITIALIZATION_JSON_PATH=/config/mock-proxmox.json
+    volumes:
+      - ./tests/mocks:/config
+```
+
+## 🔍 ヘルスチェック
+
+### ヘルスチェック設定
+
+```yaml
+services:
+  backend:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+```
+
+### ヘルスチェックエンドポイント
+
+```go
+// backend/main.go
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{
+        "status": "healthy",
+        "timestamp": time.Now().Format(time.RFC3339),
+    })
+}
+```
+
+## 📊 ログ管理
+
+### ログ設定
+
+```yaml
+services:
+  backend:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ./logs/backend:/app/logs
+
+  frontend:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ./logs/frontend:/app/logs
+```
+
+### ログ確認コマンド
+
+```bash
+# 全サービスのログ確認
+docker compose logs -f
+
+# 特定サービスのログ確認
+docker compose logs -f backend
+
+# ログのフィルタリング
+docker compose logs -f | grep ERROR
+
+# ログファイルの確認
+tail -f logs/backend/app.log
+```
+
+## 🔐 セキュリティ規約
+
+### 非rootユーザーでの実行
+
+```dockerfile
+# フロントエンド用
+FROM node:18-alpine AS production
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+USER nextjs
+```
+
+```dockerfile
+# バックエンド用
+FROM golang:1.21-alpine AS production
+RUN addgroup -g 1001 -S appgroup
+RUN adduser -S appuser -u 1001 -G appgroup
+USER appuser
+```
+
+### シークレット管理
+
+```yaml
+# シークレットの使用
+services:
+  backend:
+    secrets:
+      - proxmox_api_token
+    environment:
+      - PROXMOX_API_TOKEN_FILE=/run/secrets/proxmox_api_token
+
+secrets:
+  proxmox_api_token:
+    file: ./secrets/proxmox_api_token.txt
+```
+
+## 🧹 クリーンアップ
+
+### 定期的なクリーンアップ
+
+```bash
+# 未使用イメージの削除
+docker image prune -f
+
+# 未使用ボリュームの削除
+docker volume prune -f
+
+# 未使用ネットワークの削除
+docker network prune -f
+
+# 全未使用リソースの削除
+docker system prune -f
+```
+
+### 開発環境のリセット
+
+```bash
+# 全コンテナとボリュームの削除
+docker compose down -v --remove-orphans
+
+# イメージの削除
+docker compose down --rmi all
+
+# 完全リセット
+docker system prune -a -f --volumes
+```
+
+---
+
+参照ファイル:
+- [compose.yml](mdc:Proxmox-WebUI/compose.yml)
+- [Dockerfile](mdc:Proxmox-WebUI/frontend/Dockerfile)
+- [Dockerfile](mdc:Proxmox-WebUI/backend/Dockerfile)

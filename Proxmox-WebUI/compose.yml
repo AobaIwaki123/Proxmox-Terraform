@@ -1,0 +1,60 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8080:8080"
+    environment:
+      # 環境変数は.envファイルまたはcompose.override.ymlで設定
+      - PROXMOX_API_URL=${PROXMOX_API_URL:-}
+      - PROXMOX_API_TOKEN_ID=${PROXMOX_API_TOKEN_ID:-}
+      - PROXMOX_API_TOKEN_SECRET=${PROXMOX_API_TOKEN_SECRET:-}
+      - PROXMOX_TLS_INSECURE=${PROXMOX_TLS_INSECURE:-TRUE}
+      - PORT=${PORT:-8080}
+    command: ["go" , "run", "main.go"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - ./frontend/my-app:/app
+    ports:
+      - "3000:3000"
+    command: ["/root/.bun/bin/bun", "dev"]
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # APIテスト用のサービス
+  api-test:
+    image: alpine:latest
+    working_dir: /test
+    volumes:
+      - ./backend:/test
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: |
+      sh -c "
+        apk add --no-cache curl jq &&
+        chmod +x /test/test_api.sh &&
+        echo 'APIテストを実行中...' &&
+        sh test_api.sh docker
+      "
+    profiles:
+      - test

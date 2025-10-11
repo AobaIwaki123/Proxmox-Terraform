@@ -1,0 +1,413 @@
+---
+description: "Proxmox-WebUI システムの開発ガイドラインとコーディング規約"
+globs: ["Proxmox-WebUI/**/*.go", "Proxmox-WebUI/**/*.ts", "Proxmox-WebUI/**/*.tsx", "Proxmox-WebUI/**/*.js", "Proxmox-WebUI/**/*.jsx", "Proxmox-WebUI/**/*.json", "Proxmox-WebUI/**/*.yml", "Proxmox-WebUI/**/*.yaml", "Proxmox-WebUI/**/*.md"]
+---
+
+# Proxmox-WebUI システム開発ガイドライン
+
+## 🏗️ システム概要
+
+Proxmox-WebUIは、ProxmoxのAPIを使用してVMとLXCコンテナを管理するWebUIシステムです。
+UI上からTerraformを実行することができ、一括作成・一括削除が可能な統合管理プラットフォームです。
+
+## 🏛️ アーキテクチャ
+
+### フロントエンド (Next.js)
+- **フレームワーク**: Next.js 15.5.3
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS 4
+- **ランタイム**: Bun
+- **ポート**: 3000
+
+### バックエンド (Go)
+- **言語**: Go
+- **フレームワーク**: 標準ライブラリ + 必要に応じて外部ライブラリ
+- **ポート**: 8080
+- **API**: RESTful API
+
+### コンテナ化
+- **オーケストレーション**: Docker Compose
+- **開発環境**: ホットリロード対応
+- **ボリュームマウント**: ソースコードの即座反映
+
+## 📁 ディレクトリ構造
+
+```
+Proxmox-WebUI/
+├── frontend/
+│   └── my-app/              # Next.jsアプリケーション
+│       ├── src/             # ソースコード
+│       ├── public/          # 静的ファイル
+│       ├── package.json     # 依存関係
+│       ├── Dockerfile       # フロントエンド用Dockerfile
+│       └── README.md        # フロントエンド説明
+├── backend/
+│   ├── main.go              # メインエントリーポイント
+│   ├── handlers/            # HTTPハンドラー
+│   ├── models/              # データモデル
+│   ├── services/            # ビジネスロジック
+│   ├── utils/               # ユーティリティ
+│   ├── Dockerfile           # バックエンド用Dockerfile
+│   └── go.mod               # Go依存関係
+├── compose.yml              # Docker Compose設定
+├── Makefile                 # ビルド・デプロイタスク
+└── README.md                # システム全体説明
+```
+
+## 🔧 開発ルール
+
+### Go バックエンド開発規約
+
+#### パッケージ構成
+```go
+// main.go - エントリーポイント
+package main
+
+import (
+    "log"
+    "net/http"
+    "os"
+)
+
+func main() {
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+    
+    // ルーティング設定
+    http.HandleFunc("/api/health", healthHandler)
+    http.HandleFunc("/api/vms", vmsHandler)
+    
+    log.Printf("Server starting on port %s", port)
+    log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+```
+
+#### ハンドラー構造
+```go
+// handlers/vm_handler.go
+package handlers
+
+import (
+    "encoding/json"
+    "net/http"
+)
+
+type VMHandler struct {
+    // 依存関係の注入
+}
+
+func (h *VMHandler) ListVMs(w http.ResponseWriter, r *http.Request) {
+    // VM一覧取得ロジック
+    vms := []VM{}
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(vms)
+}
+
+func (h *VMHandler) CreateVM(w http.ResponseWriter, r *http.Request) {
+    // VM作成ロジック
+    // Terraformコマンド実行
+}
+```
+
+#### エラーハンドリング
+```go
+func handleError(w http.ResponseWriter, err error, statusCode int) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(statusCode)
+    
+    errorResponse := map[string]string{
+        "error": err.Error(),
+    }
+    
+    json.NewEncoder(w).Encode(errorResponse)
+}
+```
+
+### Next.js フロントエンド開発規約
+
+#### コンポーネント構造
+```typescript
+// src/components/VMList.tsx
+import React, { useState, useEffect } from 'react';
+
+interface VM {
+  id: string;
+  name: string;
+  status: string;
+  ip: string;
+}
+
+export const VMList: React.FC = () => {
+  const [vms, setVms] = useState<VM[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchVMs();
+  }, []);
+
+  const fetchVMs = async () => {
+    try {
+      const response = await fetch('/api/vms');
+      const data = await response.json();
+      setVms(data);
+    } catch (error) {
+      console.error('Failed to fetch VMs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <div className="vm-list">
+      {vms.map((vm) => (
+        <div key={vm.id} className="vm-item">
+          <h3>{vm.name}</h3>
+          <p>Status: {vm.status}</p>
+          <p>IP: {vm.ip}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+#### API呼び出しパターン
+```typescript
+// src/services/api.ts
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+export class APIService {
+  static async get<T>(endpoint: string): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`);
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  static async post<T>(endpoint: string, data: any): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+    return response.json();
+  }
+}
+```
+
+#### Tailwind CSS 使用規約
+```tsx
+// コンポーネントスタイリング例
+<div className="bg-white shadow-lg rounded-lg p-6">
+  <h2 className="text-2xl font-bold text-gray-800 mb-4">
+    VM Management
+  </h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {/* VM カード */}
+  </div>
+</div>
+```
+
+## 🐳 Docker Compose 開発環境
+
+### 開発環境起動
+```bash
+# 開発環境起動
+cd Proxmox-WebUI
+docker compose up -d
+
+# ログ確認
+docker compose logs -f
+
+# 停止
+docker compose down
+```
+
+### 環境変数設定
+```yaml
+# .env.local (フロントエンド用)
+NEXT_PUBLIC_API_URL=http://localhost:8080
+
+# .env (バックエンド用)
+PORT=8080
+PROXMOX_API_URL=https://your-proxmox-server:8006
+PROXMOX_API_TOKEN=your-api-token
+```
+
+## 🔌 API設計規約
+
+### RESTful API エンドポイント
+
+#### VM管理
+```
+GET    /api/vms              # VM一覧取得
+POST   /api/vms              # VM作成
+GET    /api/vms/{id}         # VM詳細取得
+PUT    /api/vms/{id}         # VM更新
+DELETE /api/vms/{id}         # VM削除
+POST   /api/vms/{id}/start   # VM起動
+POST   /api/vms/{id}/stop    # VM停止
+```
+
+#### LXC管理
+```
+GET    /api/containers       # LXC一覧取得
+POST   /api/containers       # LXC作成
+GET    /api/containers/{id}  # LXC詳細取得
+PUT    /api/containers/{id}  # LXC更新
+DELETE /api/containers/{id}  # LXC削除
+```
+
+#### Terraform統合
+```
+POST   /api/terraform/plan   # Terraform計画実行
+POST   /api/terraform/apply  # Terraform適用
+POST   /api/terraform/destroy # Terraform削除
+GET    /api/terraform/status # Terraform状態取得
+```
+
+### レスポンス形式
+```json
+{
+  "success": true,
+  "data": {
+    "id": "100",
+    "name": "my-vm",
+    "status": "running",
+    "ip": "192.168.11.100"
+  },
+  "message": "VM created successfully"
+}
+```
+
+### エラーレスポンス
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VM_CREATE_FAILED",
+    "message": "Failed to create VM: insufficient resources",
+    "details": "Not enough memory available on target node"
+  }
+}
+```
+
+## 🧪 テスト規約
+
+### Go テスト
+```go
+// handlers/vm_handler_test.go
+package handlers
+
+import (
+    "net/http"
+    "net/http/httptest"
+    "testing"
+)
+
+func TestListVMs(t *testing.T) {
+    handler := &VMHandler{}
+    req := httptest.NewRequest("GET", "/api/vms", nil)
+    w := httptest.NewRecorder()
+    
+    handler.ListVMs(w, req)
+    
+    if w.Code != http.StatusOK {
+        t.Errorf("Expected status 200, got %d", w.Code)
+    }
+}
+```
+
+### Next.js テスト
+```typescript
+// src/components/__tests__/VMList.test.tsx
+import { render, screen } from '@testing-library/react';
+import { VMList } from '../VMList';
+
+describe('VMList', () => {
+  it('renders VM list', () => {
+    render(<VMList />);
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
+});
+```
+
+## 🚀 デプロイメント
+
+### 本番環境用Docker Compose
+```yaml
+# compose.prod.yml
+services:
+  backend:
+    build:
+      context: ./backend
+      target: production
+    environment:
+      - PORT=8080
+      - PROXMOX_API_URL=${PROXMOX_API_URL}
+      - PROXMOX_API_TOKEN=${PROXMOX_API_TOKEN}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+```
+
+### 環境変数管理
+```bash
+# 本番環境用環境変数
+export PROXMOX_API_URL="https://your-proxmox-server:8006"
+export PROXMOX_API_TOKEN="your-secure-api-token"
+export NEXT_PUBLIC_API_URL="https://your-domain.com/api"
+```
+
+## 🔐 セキュリティ規約
+
+### API認証
+- Proxmox APIトークンを使用
+- 環境変数でトークン管理
+- トークンの定期的なローテーション
+
+### フロントエンドセキュリティ
+- CORS設定の適切な管理
+- XSS対策の実装
+- 入力値のバリデーション
+
+### コンテナセキュリティ
+- 非rootユーザーでの実行
+- 最小権限の原則
+- セキュリティスキャンの定期実行
+
+## 📝 ドキュメント規約
+
+### API仕様書
+- OpenAPI/Swagger形式で記述
+- エンドポイントごとの詳細説明
+- リクエスト/レスポンス例の記載
+
+### コンポーネントドキュメント
+- Storybookを使用したコンポーネントカタログ
+- Props の詳細説明
+- 使用例の記載
+
+---
+
+参照ファイル:
+- [compose.yml](mdc:Proxmox-WebUI/compose.yml)
+- [package.json](mdc:Proxmox-WebUI/frontend/my-app/package.json)
+- [README.md](mdc:Proxmox-WebUI/README.md)
