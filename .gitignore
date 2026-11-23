@@ -1,2 +1,4 @@
 provider.tf
 tmp/
+/.worktrees/
+/.vscode/
