@@ -112,11 +112,12 @@ $ task create-ct -- CT_NAME
 
 ```sh
 $ cd envs/dev
-$ make tf-init
-$ make tf-apply
+$ task init-tf
+$ task plan-tf
+$ task apply-tf
 ```
 
-[こちら](./envs/example/README.md)に詳しい手順が記載されています。
+生成された環境ディレクトリ内の README に詳しい手順が記載されています。
 
 # 参考
 
