@@ -18,6 +18,12 @@ tasks:
       - terraform init
     silent: true
 
+  plan-tf:
+    desc: Terraformの変更予定を確認する
+    cmds:
+      - terraform plan -var-file terraform.tfvars
+    silent: true
+
   apply-tf:
     desc: Terraformでリソースを作成する
     cmds:

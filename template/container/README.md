@@ -11,6 +11,7 @@ $ task init-tf
 ## 環境の作成
 
 ```sh
+$ task plan-tf
 $ task apply-tf
 ```
 
