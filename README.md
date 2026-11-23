@@ -126,5 +126,5 @@ $ task apply-tf
 
 # Docs
 
-- [Terraformのインストール](./docs/install_terraform.md)
-- [VMテンプレートの作成](./docs/create_vm_template.md)
+- [Proxmox VM リソース](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/resources/vm_qemu)
+- [Proxmox LXC リソース](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/resources/lxc)
