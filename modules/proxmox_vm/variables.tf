@@ -3,6 +3,12 @@ variable "hostname" {
   type        = string
 }
 
+variable "vm_state" {
+  description = "Desired VM power state"
+  type        = string
+  default     = "running"
+}
+
 variable "username" {
   description = "The username for the VM"
   type        = string

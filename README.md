@@ -1,131 +1,22 @@
-# Create Proxmox VM/Container with Terraform
+# Proxmox Terraform
 
-自前のProxmox環境にVMやコンテナを立てるためのTerraformフレームワーク。  
-基本的なコマンドは、Taskfileに集約し、基礎となる環境ファイルは`template`ディレクトリに格納している。  
-VM を一覧で管理する検証用構成は [inventory/](inventory/) を参照。既存環境の state は自動移行しない。
-公式のドキュメントは[こちら](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/guides/cloud-init%2520getting%2520started)。  
-絶賛`3.0.1`開発中のProxmox Providerのリポジトリは[こちら](https://github.com/Telmate/terraform-provider-proxmox)。
+Proxmox 上の VM を Terraform で管理します。VM は `inventory/terraform.tfvars` の一覧に定義します。
+共通設定と VM ごとの設定については [inventory/README.md](inventory/README.md) を参照してください。
 
-# Version情報
+## VM の操作
 
-- Terraform: v1.13.3
-- Proxmox: 8.3.4
-- proxmox provider: 3.0.1-rc6
-  - Containerに関しては、`rc5`, `rc6`において[こちら](https://github.com/Telmate/terraform-provider-proxmox/issues/1172)のISSUEが存在するため、`rc4`を使用している
- 
-# Gettig Started
+1. `task create-provider` で不足している provider 設定を作り、`inventory/provider.tf` に認証情報を設定する。
+2. `inventory/terraform.tfvars.example` を `inventory/terraform.tfvars` にコピーし、VM の一覧を編集する。
+3. `inventory/` で `terraform init` と `terraform plan` を実行する。
+4. plan を確認し、意図した差分だけである場合に `terraform apply` を実行する。
 
-## 1. Terraformをインストール
+既存 VM を別の state から移行する場合、一覧を追加するだけでは既存 VM を認識しません。
+事前に state の対応付けと plan を確認してください。provider の認証情報、state、および
+実際の tfvars はコミットしません。
 
-```sh
-$ terraform version
-Terraform v1.13.3
-```
+既存 LXC テンプレートは当面残しています。
 
-## 2. Proxmox API Tokenの取得
+## 参考
 
-まず、以下のようにロール、ユーザーを作成し、作成したロールをユーザーに割り当てる。
-以下のコマンドはPVEクラスタのノード上であればどこで実行しても良い。
-また、GUIでも作成可能だがRoleは多少面倒なのでRoleだけはコマンドで作成するのがおすすめ。
-
-### TerraformProvロールの作成
-
-```sh
-$ pveum role add TerraformProv -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
-```
-
-### terraform-provユーザーの作成
-
-```sh
-$ pveum user add terraform-prov@pve --password <password>
-```
-
-### TerraformProvロールをterraform-provユーザーに割り当てる
-
-```sh
-$ pveum aclmod / -user terraform-prov@pve -role TerraformProv
-```
-
-最後に作成したユーザーを用いてGUI上で任意のidでトークンを作成する。
-以下のような画面が出ればOK
-
-![alt text](imgs/tf-token.png)
-
-## Provider情報のコピー
-
-- TOKENをべたがきするようになっているため、流出に注意
-
-```sh
-$ task create-provider
-# modules/proxmox_vm/provider.tf及び
-# modules/proxmox_lxc/provider.tfが作成される
-```
-
-`provider.tf`にProxmox API Tokenの情報を記述する
-
-## VMテンプレートの作成
-
-以下のコマンドをproxmoxのノード上で実行する
-スクリプトは[こちら](https://qiita.com/ymbk990/items/bd3973d2b858eb86e334)を参考にしました。  
-コピペ用は[こちら](./scripts/create-vm-template.sh)。
-
-```bash
-$ wget https://cloud-images.ubuntu.com/oracular/current/oracular-server-cloudimg-amd64.img -O ubuntu-24.10-server-cloudimg-amd64.img
-# Base VM configuration
-$ qm create 9200 --net0 virtio,bridge=vmbr0
-$ qm importdisk 9200 ubuntu-24.10-server-cloudimg-amd64.img local-lvm
-$ qm set 9200 --name ubuntu-24.10a
-$ qm set 9200 --scsihw virtio-scsi-pci --virtio0 local-lvm:vm-9200-disk-0
-$ qm set 9200 --boot order=virtio0
-$ qm set 9200 --ide2 local-lvm:cloudinit
-$ qm set 9200 --nameserver 127.0.0.53 --searchdomain localdomain
-# Convert VM to VM Template
-$ qm template 9200
-```
-
-## 目的毎にTerraformの設定ファイル(env)を作成する
-
-- 以下のコマンドでenvを作成する
-
-```bash
-$ task create-vm -- VM_NAME
-$ task create-ct -- CT_NAME
-```
-
-`envs/dev/terraform.tfvars`を適宜編集する
-以下はざっくりした説明
-
-- hostname : VMのホスト名
-- username : VMにログインするユーザ名
-- public_key : VMにログインするための公開鍵
-- cores : CPUのコア数
-- memory : メモリのサイズ (MB)
-- disk_size : ディスクのサイズ (GB)
-- ip_address : VMに割り当てるIPアドレス
-- gateway : VMに割り当てるゲートウェイ
-- target_node : Proxmoxのノード名
-- template : VMのテンプレート名
-- storage : VMのストレージ名
-- bride : VMに割り当てるネットワークブリッジ
-- vmid : VMのID
-
-## Terraform環境の適用方法
-
-```sh
-$ cd envs/dev
-$ task init-tf
-$ task plan-tf
-$ task apply-tf
-```
-
-生成された環境ディレクトリ内の README に詳しい手順が記載されています。
-
-# 参考
-
-- [Proxmox VEとTerraformでインターン生に仮想マシンを払い出す話](https://qiita.com/ymbk990/items/bd3973d2b858eb86e334)
-詳しい説明は、それぞれのTemplateのREADMEを参照
-
-# Docs
-
-- [Proxmox VM リソース](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/resources/vm_qemu)
-- [Proxmox LXC リソース](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/resources/lxc)
+- [Telmate Proxmox provider](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs)
+- [Terraform の state 管理](https://developer.hashicorp.com/terraform/language/state)
