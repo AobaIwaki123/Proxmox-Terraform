@@ -17,5 +17,7 @@ vms = {
     cores       = 2
     memory      = 2048
     disk_size   = 32
+    vm_state    = "stopped"
+    template    = "another-ubuntu-template"
   }
 }

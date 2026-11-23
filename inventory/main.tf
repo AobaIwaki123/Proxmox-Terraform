@@ -14,18 +14,19 @@ module "vm" {
   source   = "../modules/proxmox_vm"
 
   hostname     = each.key
-  username     = var.defaults.username
-  public_key   = var.defaults.public_key
+  vm_state     = each.value.vm_state
+  username     = coalesce(each.value.username, var.defaults.username)
+  public_key   = each.value.public_key != null ? each.value.public_key : var.defaults.public_key
   cores        = each.value.cores
   memory       = each.value.memory
   disk_size    = each.value.disk_size
   ip_address   = each.value.ip_address
-  gateway      = var.defaults.gateway
-  nameserver   = var.defaults.nameserver
-  searchdomain = var.defaults.searchdomain
+  gateway      = coalesce(each.value.gateway, var.defaults.gateway)
+  nameserver   = coalesce(each.value.nameserver, var.defaults.nameserver)
+  searchdomain = coalesce(each.value.searchdomain, var.defaults.searchdomain)
   target_node  = each.value.target_node
-  template     = var.defaults.template
-  storage      = var.defaults.storage
-  bridge       = var.defaults.bridge
+  template     = coalesce(each.value.template, var.defaults.template)
+  storage      = coalesce(each.value.storage, var.defaults.storage)
+  bridge       = coalesce(each.value.bridge, var.defaults.bridge)
   vmid         = each.value.vmid
 }

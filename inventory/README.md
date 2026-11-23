@@ -5,6 +5,7 @@
 
 `terraform.tfvars.example` を `terraform.tfvars` にコピーし、共通設定と VM 一覧を編集します。
 VM のキーがホスト名と Terraform のアドレスになるため、変更には state の移動が必要です。
+共通設定は VM ごとに上書きできます。停止中の VM は `vm_state = "stopped"` にします。
 
 プロバイダー設定はこのディレクトリの未追跡の `provider.tf` に用意します。
 認証情報は Git にコミットしないでください。初期化して差分を確認します。
