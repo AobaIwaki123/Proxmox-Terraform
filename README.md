@@ -2,6 +2,7 @@
 
 自前のProxmox環境にVMやコンテナを立てるためのTerraformフレームワーク。  
 基本的なコマンドは、Taskfileに集約し、基礎となる環境ファイルは`template`ディレクトリに格納している。  
+VM を一覧で管理する検証用構成は [inventory/](inventory/) を参照。既存環境の state は自動移行しない。
 公式のドキュメントは[こちら](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs/guides/cloud-init%2520getting%2520started)。  
 絶賛`3.0.1`開発中のProxmox Providerのリポジトリは[こちら](https://github.com/Telmate/terraform-provider-proxmox)。
 

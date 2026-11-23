@@ -1,0 +1,21 @@
+defaults = {
+  username     = "aoba"
+  public_key   = []
+  gateway      = "192.0.2.1"
+  nameserver   = "192.0.2.1"
+  searchdomain = "local"
+  template     = "ubuntu-template"
+  storage      = "local-lvm"
+  bridge       = "vmbr0"
+}
+
+vms = {
+  example = {
+    vmid        = 999
+    target_node = "pve1"
+    ip_address  = "192.0.2.10"
+    cores       = 2
+    memory      = 2048
+    disk_size   = 32
+  }
+}
