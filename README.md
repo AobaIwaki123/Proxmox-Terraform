@@ -16,6 +16,11 @@ Proxmox 上の VM を Terraform で管理します。VM は `inventory/terraform
 
 既存 LXC テンプレートは当面残しています。
 
+## Backup
+
+Terraform の inventory、state、実環境設定の暗号化バックアップと復元手順は
+[backup/README.md](backup/README.md) を参照してください。
+
 ## 参考
 
 - [Telmate Proxmox provider](https://registry.terraform.io/providers/Telmate/proxmox/latest/docs)
