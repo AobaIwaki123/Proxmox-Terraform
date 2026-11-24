@@ -1,0 +1,13 @@
+[Unit]
+Description=Encrypted backup of Proxmox Terraform inventory to Google Cloud Storage
+
+[Service]
+Type=oneshot
+UMask=0077
+TimeoutStartSec=1h
+Environment=GOOGLE_APPLICATION_CREDENTIALS=%h/.config/restic/gcs-key.json
+Environment=GOOGLE_PROJECT_ID=aoba-infra-backup-20261123
+Environment=RESTIC_REPOSITORY=gs:aoba-infra-backup-20261123:/proxmox
+Environment=RESTIC_PASSWORD_FILE=%h/.config/restic/password
+ExecStart=%h/.local/bin/restic backup --exclude=**/.terraform/** %h/proxmox-inventory %h/proxmox-terraform-migration-backup-20261123.tgz
+ExecStart=%h/.local/bin/restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
