@@ -44,10 +44,13 @@ journalctl --user -u proxmox-inventory-backup.service
 
 ## Restore
 
-On a replacement machine, install restic and the Google Cloud CLI, authenticate with an account that can access this bucket, and obtain the repository password from its separate password store.
+On a replacement machine, install restic and the Google Cloud CLI, authenticate with an account that can access this bucket, then retrieve the repository password from Secret Manager:
 
 ```sh
 gcloud auth application-default login
+mkdir -p "$HOME/.config/restic"
+umask 077
+gcloud secrets versions access latest --secret=proxmox-restic-password --project=aoba-infra-backup-20261123 > "$HOME/.config/restic/password"
 export GOOGLE_PROJECT_ID=aoba-infra-backup-20261123
 export RESTIC_REPOSITORY=gs:aoba-infra-backup-20261123:/proxmox
 export RESTIC_PASSWORD_FILE="$HOME/.config/restic/password"
@@ -55,4 +58,4 @@ restic snapshots
 restic restore latest --target "$HOME/proxmox-restore"
 ```
 
-The restic password is required to decrypt the backup. Keep it recoverable independently of `terraform.vm`.
+The restic password is required to decrypt the backup. It is stored in Secret Manager so it can be retrieved if `terraform.vm` is lost. Access to the GCP account and project is therefore required for recovery.
